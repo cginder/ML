@@ -1,1 +1,34 @@
 ## HW 1
+
+## create sample data
+# sample x
+x <- rnorm(100,0,1)
+# sample error
+e <- rnorm(100,0,1)
+
+# y = (1.8 * x + 2 + error)
+y <- (1.8*x + 2 + e)
+
+# scatter plot
+plot(y~x)
+abline(a = 2, b = 1.8)
+
+# create test set
+x.test <- rnorm(10000,0,1)
+e.test <- rnorm(10000,0,1)
+y.test <- (1.8*x.test + 2 + e.test)
+
+# Q1.3 Ordinary Linear Regression
+ord.lin <- lm(y ~ x)
+summary(ord.lin)
+abline(ord.lin, col = "blue",lwd = 1)
+
+# Q1.4 KNN
+train <- as.data.frame(cbind(x,y))
+test <- data.frame(x = sort(x))
+knn2 = kknn(y~x,train,test, k = 2, kernel = "rectangular")
+knn12 = kknn(y~x,train,test, k = 12, kernel = "rectangular")
+plot(y~x)
+abline(ord.lin, col = "blue",lwd = 1)
+lines(test$x,knn2$fitted.values,col="red",lwd=2)
+lines(test$x,knn12$fitted.values,col="green",lwd=2)
