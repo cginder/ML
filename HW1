@@ -1,34 +1,79 @@
 ## HW 1
+# load KKNN Library for KNN model
+library(kknn)
 
+## set seed to maintain reproducibility
+set.seed(99)
+
+## Question 1.1 - Generate Random Data & Linear Model
 ## create sample data
 # sample x
-x <- rnorm(100,0,1)
+x <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1
 # sample error
-e <- rnorm(100,0,1)
+e <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
 
 # y = (1.8 * x + 2 + error)
 y <- (1.8*x + 2 + e)
 
 # scatter plot
 plot(y~x)
-abline(a = 2, b = 1.8)
+abline(a = 2, b = 1.8) # plot a line of what the equation should be (without error)
 
 # create test set
-x.test <- rnorm(10000,0,1)
-e.test <- rnorm(10000,0,1)
+x.test <- rnorm(10000,0,1) # same thing as above, 10,000 draws this time though
+e.test <- rnorm(10000,0,1) # " " " "
 y.test <- (1.8*x.test + 2 + e.test)
 
 # Q1.3 Ordinary Linear Regression
-ord.lin <- lm(y ~ x)
-summary(ord.lin)
-abline(ord.lin, col = "blue",lwd = 1)
+ord.lin <- lm(y ~ x) # create a linear regression model for y on x (remember y has error term built in)
+summary(ord.lin) # summary stats/coefficients for model
+abline(ord.lin, col = "blue",lwd = 1) # plot the regression line
 
 # Q1.4 KNN
-train <- as.data.frame(cbind(x,y))
-test <- data.frame(x = sort(x))
-knn2 = kknn(y~x,train,test, k = 2, kernel = "rectangular")
-knn12 = kknn(y~x,train,test, k = 12, kernel = "rectangular")
-plot(y~x)
-abline(ord.lin, col = "blue",lwd = 1)
-lines(test$x,knn2$fitted.values,col="red",lwd=2)
-lines(test$x,knn12$fitted.values,col="green",lwd=2)
+train <- as.data.frame(cbind(x,y)) # build data frame for training data
+test <- data.frame(x = sort(x)) # build data frame of just x values for test data
+knn2 = kknn(y~x,train,test, k = 2, kernel = "rectangular")  # create KNN model with k = 2
+knn12 = kknn(y~x,train,test, k = 12, kernel = "rectangular") # create KNN model with k = 12
+plot(y~x) # plot same x/y scatter as above
+abline(ord.lin, col = "blue",lwd = 1) # add in linear regression equation from above
+lines(test$x,knn2$fitted.values,col="red",lwd=2) # add in KNN2 plot of predicted values
+lines(test$x,knn12$fitted.values,col="green",lwd=2)  # add in KNN12 plot of predicted values
+
+# add legend to plot
+legend("topleft", bty="n",fill=c("blue","red","green"),cex = .75,
+       legend =c("Linear Regression","KNN2","KNN12"))
+
+
+## 1.6 - Different Data Generation Process for 1.1-1.5 above
+xtan <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1
+# sample error
+etan <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+
+# different model y = tanh(1.1 × xi) + 2 + ei
+ytan <- tanh(1.1 * xtan) +2 + etan
+
+# scatter plot
+plot(ytan~xtan)
+
+# create test set
+x.test.tan <- rnorm(10000,0,1) # same thing as above, 10,000 draws this time though
+e.test.tan <- rnorm(10000,0,1) # " " " "
+y.test.tan <- (1.8*x.test + 2 + e.test)
+
+# Ordinary Linear Regression
+ord.lin.tan <- lm(ytan ~ xtan) # create a linear regression model for y on x
+summary(ord.lin.tan) # summary stats/coefficients for model
+abline(ord.lin.tan, col = "blue",lwd = 1) # plot the regression line
+
+train.tan <- as.data.frame(cbind(xtan,ytan)) # build data frame for training data
+test.tan <- data.frame(xtan = sort(xtan)) # build data frame of just x values for test data
+knn2.tan = kknn(ytan~xtan,train.tan,test.tan, k = 2, kernel = "rectangular")  # create KNN model with k = 2
+knn12.tan = kknn(ytan~xtan,train.tan,test.tan, k = 12, kernel = "rectangular") # create KNN model with k = 12
+plot(ytan~xtan) # plot same x/y scatter as above
+abline(ord.lin.tan, col = "blue",lwd = 1) # add in linear regression equation from above
+lines(test.tan$x,knn2$fitted.values,col="red",lwd=2) # add in KNN2 plot of predicted values
+lines(test.tan$x,knn12$fitted.values,col="green",lwd=2)  # add in KNN12 plot of predicted values
+
+# add legend to plot
+legend("topleft", bty="n",fill=c("blue","red","green"),cex = .75,
+       legend =c("Linear Regression","KNN2","KNN12"))
