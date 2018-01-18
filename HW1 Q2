@@ -1,1 +1,71 @@
 ## Week 1 Question 2 HW
+library(proxy)
+
+## load cvknn library
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/docv.R", "docv.R")
+source("docv.R")
+
+set.seed(99)
+
+# download file (URL provided in HW Assignment)
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/MLClassData/master/UsedCars/UsedCars.csv",destfile = "UsedCars.csv")
+
+# read file into R
+Used.Cars <- read.csv("UsedCars.csv")
+
+# explore header of file
+head(Used.Cars)
+
+
+############ 
+# Question 2.1 
+# Take a look at the data-set and describe for what kind of business related problems you could use this
+# data. That is, why would anyone care to collect this data?
+############
+
+#### 2.2 - Split data into two parts: training set consisting of 75%, test set consisting of 25%
+
+# get number of train samples that need to be drawn (75% * number of obs, rounded to nearest int)
+ntrain <- round(.75*nrow(Used.Cars))
+
+# pull random sample
+tr <- sample(1:nrow(Used.Cars),ntrain)
+df.train <- Used.Cars[tr,] # training data
+df.test <- Used.Cars[-tr,] # test data
+
+#### 2.3 -  Using ordinary linear regression, find a relationship between price and mileage of the form price = bo + b1 x mileage + e
+car.lm <- lm(price~mileage, data = df.train)
+summary(car.lm)
+plot(price~mileage, data = df.train, cex = 0.6) # plot scatter plot, cex command controls dot size to make them smaller
+abline(car.lm, col = "blue",lwd = 3, lty = "dashed") # plot the regression line
+
+#### 2.4 - Fit polynomial regression to see if its a better fit. Equation: price = b0 + b1 x mileage + b2 x mileage^2 ... + bd x mileage^d + e
+set.seed(99)
+
+# test possible polynomial values 
+dvec <- 1:9 # vector for possible polynomial terms
+nd <- length(dvec) # total number of polynomial terms tried
+
+dfolds <- 1:5
+nfolds <- 5 # number of folds for CV
+fold <- sample(nfolds, nrow(df.train), replace = TRUE)
+
+outMSE <- rep(0,nd) #will will put the average out-of-sample MSE here for each d
+foldMSE <- rep(0,nfolds) # for calculating each fold's MSE
+
+
+for(i in 1:nd) {     # cycle on all possible d polynomial terms
+  for (j in 1:nfolds) {  # rerun on number of folds
+    take <- fold == j   
+    foldj <- df.train[take,]
+    foldOther <- df.train[!take,]
+    
+    poly <- lm(price ~ poly(mileage,dvec[i]),data=foldOther) 
+    pred <- predict(poly,foldj)
+    foldMSE[j] <- mean((pred - foldj$price)^2)
+    
+  }
+  outMSE[i] = mean(foldMSE)
+}
+
+plot(dvec,outMSE)
