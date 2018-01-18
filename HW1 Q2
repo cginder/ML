@@ -98,7 +98,7 @@ kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
 cars.cv = docvknn(matrix(df.train$mileage,ncol=1),df.train$price,kv,nfold=5)
 
 # convert to MSE (docvknn returns error sum of squares)
-cars.cv <- sqrt(cars.cv/length(df.train$mileage))
+cars.cv <- cars.cv/length(df.train$mileage)
 
 plot(log(1/kv),cars.cv,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
 imin = which.min(cars.cv)
@@ -127,6 +127,8 @@ best.tree <- prune(cars.tree,cp=bestcp)
 
 rpart.plot(best.tree)
 
+df.train.tree <- df.train[order(df.train$mileage),]
+
 #### Questions 2.5.3 Scatter plot of price vs mileage with 3 models
 plot(price ~ mileage, data = df.train)
 
@@ -138,6 +140,31 @@ lines(sort(df.train$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
 
 
 # trees plot
-pfit <- predict(best.tree)
-lines(sort(df.train$mileage),pfit,col="red",lwd=2,cex.lab=2)
+pfit <- predict(best.tree, df.train.tree)
+lines(sort(df.train$mileage),pfit,col="blue",lwd=2,cex.lab=2)
+
+# MSE for each function
+bestKNN.MSE <- which.min(cars.cv)
+bestTree.MSE <- ""
+bestPoly.MSE <- ""
+
+model.MSEs <- cbind(bestKNN.MSE,bestTree.MSE,bestPoly.MSE)
+  
+### Select the best function
+  
+#### Question 2.6
+kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
+
+cars.cv = docvknn(matrix(cbind(df.train$mileage,df.train$,ncol=1),df.train$price,kv,nfold=5)
+
+# convert to MSE (docvknn returns error sum of squares)
+cars.cv <- cars.cv/length(df.train$mileage)
+
+plot(log(1/kv),cars.cv,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+imin = which.min(cars.cv)
+cat("best k is ",kv[imin],"\n")
+
+# refit model with all training data
+kfbest = kknn(price~mileage,df.train,data.frame(mileage = sort(df.train$mileage)),k=kv[imin],kernel = "rectangular")
+
 
