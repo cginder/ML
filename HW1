@@ -232,5 +232,20 @@ abline(h=lmMSE.sin,lwd = 2,lty = "dashed")
 
 
 #### Question 8 ####
-# haven't figured out what the model we are supposed to create for this. confused because noise just seems like it will always add 1 for each noise variable,
-# not a normally distributed variable.
+
+# initialize x dataframe
+df.xtrain <- data.frame(rep(0,100))
+pvals <- (1:20)
+npvals <- length(pvals)
+
+for (i in 1:20){
+  df.xtrain[,i] <- rnorm(100,0,1)
+  colnames(df.xtrain)[i] <- paste("x",i)
+  
+}
+
+enoise <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+
+# different model y = sin(2x) + 2 + e
+ynoise <- sin(2*df.xtrain$`x 1` + 2 + enoise)
+
