@@ -43,11 +43,11 @@ abline(car.lm, col = "blue",lwd = 3, lty = "dashed") # plot the regression line
 set.seed(99)
 
 # test possible polynomial values 
-dvec <- 1:9 # vector for possible polynomial terms
+dvec <- 1:10 # vector for possible polynomial terms
 nd <- length(dvec) # total number of polynomial terms tried
 
-dfolds <- 1:5
-nfolds <- 5 # number of folds for CV
+dfolds <- 1:10
+nfolds <- length(dfolds) # number of folds for CV
 fold <- sample(nfolds, nrow(df.train), replace = TRUE)
 
 outMSE <- rep(0,nd) #will will put the average out-of-sample MSE here for each d
@@ -60,12 +60,31 @@ for(i in 1:nd) {     # cycle on all possible d polynomial terms
     foldj <- df.train[take,]
     foldOther <- df.train[!take,]
     
-    poly <- lm(price ~ poly(mileage,dvec[i]),data=foldOther) 
+    poly <- lm(price ~ poly(mileage,i),data=foldOther) 
     pred <- predict(poly,foldj)
     foldMSE[j] <- mean((pred - foldj$price)^2)
     
   }
   outMSE[i] = mean(foldMSE)
 }
-
+imin = which.min(outMSE)
+cat("best k is ",dvec[imin],"\n")
 plot(dvec,outMSE)
+
+# refit polynomial on all training data
+# sort data to plot polynomial fitted values in order
+poly.data <- df.train[order(df.train$mileage),]
+
+# retrain final model on best polynomial term as determined above
+finalpoly <- lm(price ~ poly(mileage,imin),data = poly.data)
+
+
+# replot scatter
+plot(price~mileage, data = df.train, cex = 0.6) # plot scatter plot, cex command controls dot size to make them smaller
+
+# add polynomial line
+lines(fitted(finalpoly)~poly.data$mileage, col = "green" , lwd = 3)
+
+
+
+#### Question 2.5 - Use k-NN and regression trees
