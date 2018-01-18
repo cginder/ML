@@ -115,6 +115,8 @@ colnames(df.tan.fx)[1] <- "x"  # rename to x for simplicity
 knn.tan.2 = kknn(y~x,df.train.tan,df.tan.fx, k = 2, kernel = "rectangular")  # create KNN model with k = 2
 knn.tan.12 = kknn(y~x,df.train.tan,df.tan.fx, k = 12, kernel = "rectangular") # create KNN model with k = 12
 plot(ytan~xtan) # plot same x/y scatter as above
+
+
 ########################################
 ### not sure how to plot true relationship ### ***
 ######################################
@@ -233,8 +235,9 @@ abline(h=lmMSE.sin,lwd = 2,lty = "dashed")
 
 #### Question 8 ####
 
-# initialize x dataframe
+# initialize x dataframe for training and test dataset
 df.xtrain <- data.frame(rep(0,100))
+df.xtest <- data.frame(rep(0,10000))
 pvals <- (1:20)
 npvals <- length(pvals)
 
@@ -242,10 +245,49 @@ for (i in 1:20){
   df.xtrain[,i] <- rnorm(100,0,1)
   colnames(df.xtrain)[i] <- paste("x",i)
   
+  df.xtest[,i] <- rnorm(10000,0,1)
+  colnames(df.xtest)[i] <- paste("x",i)
 }
 
-enoise <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+enoise.train <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+enoise.test <- rnorm(10000,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
 
 # different model y = sin(2x) + 2 + e
-ynoise <- sin(2*df.xtrain$`x 1` + 2 + enoise)
+ynoise.train <- sin(2*df.xtrain$`x 1`) + 2 + enoise.train
+ynoise.test <- sin(2*df.xtest$`x 1`) + 2 + enoise.test
+
+
+# 1.8.3 Ordinary Linear Regression
+lmnoise <- lm (ynoise.train~df.p.train$`x 1`) # create a linear regression model for y on x
+summary(lmnoise) # summary stats/coefficients for model
+plot(ynoise.train~df.p.train$`x 1`)
+abline(lmnoise, col = "blue",lwd = 1) # plot the regression line
+
+## 1.8.4 KNN 
+# vector of possible k values (k=2,3,...,15)
+
+for (p in 2 : 20){
+  df.p.train <- as.data.frame(cbind(df.xtrain[,c(1:p)],y= ynoise.train))
+  df.p.test <- as.data.frame(cbind(df.xtest[,c(1:p)],y = ynoise.test))
+  
+  kvec=seq(from = 2, to = 100, by = 2); nk=length(kvec)
+  noise.outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+  
+  for(i in 1:nk) {
+    near = kknn(y~.,df.p.train,df.p.test,k=kvec[i],kernel = "rectangular")
+    MSE = mean((df.p.test$y-near$fitted)^2)
+    noise.outMSE[i] = MSE
+  }
+  #plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+  plot(log(1/kvec),noise.outMSE,ylab="Mean Squared Error",main = paste("P =",p,"KNN"))
+  imin = which.min(noise.outMSE)
+  cat("best k is ",kvec[imin],"\n")
+  
+  # linear regression
+  lmnoise <- lm(y~.,df.p.train) # create a linear regression model for y on x
+  lmnoisePred <- predict(lmnoise,newdata = df.p.test)
+  # calculate LM MSE
+  lmMSE.noise <- mean((df.p.test$y- lmnoisePred)^2)
+  abline(h=lmMSE.noise,lwd = 2,lty = "dashed")
+}
 
