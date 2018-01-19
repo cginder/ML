@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Question 1 - Running a simulation to explore the bias-variance trade-off using linear regression versus k-NN.
 
-**1.1 First, we will load the k-NN library and set a seed factor to maintain reproducibility.**
+**1.1:** First, we will load the k-NN library and set a seed factor to maintain reproducibility.
 
 ```{r}
 library(kknn)
@@ -32,14 +32,14 @@ e.test <- rnorm(10000,0,1) # " " " "
 y.test <- (1.8*x.test + 2 + e.test)
 ```
 
-**1.2 We now create a scatter plot of our training data and draw a black line that represents the true relationship.**
+**1.2:** We now create a scatter plot of our training data and draw a black line that represents the true relationship.
 
 ```{r}
 plot(y.train~x.train)
 abline(a = 2, b = 1.8,lwd = 2) # plot a line of what the equation should be (without error)
 ```
 
-**1.3 We now use ordinary linear regression to fit a model of the form y = bo + b1*X + e based on the training data. **
+**1.3:** We now use ordinary linear regression to fit a model of the form y = bo + b1*X + e based on the training data.
 
 ```{r}
 # Q1.3 Ordinary Linear Regression w/ training data
@@ -59,7 +59,7 @@ legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
        legend =c("True Relationship","Linear Regression Fit"))
 ```
 
-**1.4 We  now fit a k-NN model, experimenting with k=2,3....,15. We once again plot our training data with the true relationship as well as our predicted fit for k=2 and k=12.**
+**1.4** We  now fit a k-NN model, experimenting with k=2,3....,15. We once again plot our training data with the true relationship as well as our predicted fit for k=2 and k=12.
 
 ```{r}
 df.fx <- data.frame(x.train = sort(x.train)) # data frame with x you want f(x) at, sort x to make plots nice.
@@ -73,7 +73,7 @@ legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
        legend =c("True Relationship","KNN2","KNN12"))
 ```
 
-**1.5 Based on visuals from the plots of training data, it appears the linear model does a better job than the k-NN models of fitting the true relationship. We will now evaluate the mean squared error of our models using our test set. The below plot explores the MSE versus k-NN model complexity. The dashed line represents the test mean squared error of the linear regression model.**
+**1.5** Based on visuals from the plots of training data, it appears the linear model does a better job than the k-NN models of fitting the true relationship. We will now evaluate the mean squared error of our models using our test set. The below plot explores the MSE versus k-NN model complexity. The dashed line represents the test mean squared error of the linear regression model.
 
 ```{r}
 df.test <- as.data.frame(cbind(x.test,y.test)) # build data frame for test set data of interest
@@ -107,7 +107,7 @@ abline(h=lmMSE,lwd = 2,lty = "dashed")
 
 The minimum MSE for the k-NN model is at k=10. However, looking at the plot, we see that the linear regression model performs much better than the k-NN model at all simulated values of K. Thus, our linear regression model is more appropriate than the k-NN to predict the actual relationship, which is linear in form. 
 
-**1.6 We will now replicate the steps completed in 1.1 - 1.5, only this time for the model yi = tanh(1.1*xi) + 2 + ei.**
+**1.6:** We will now replicate the steps completed in 1.1 - 1.5, only this time for the model yi = tanh(1.1*xi) + 2 + ei.
 
 ```{r}
 #1.6.1 - creating training and test sets
@@ -128,7 +128,7 @@ y.test.tan <- tanh(1.1*x.test.tan) + 2 + e.test.tan
 ```
 
 
-**1.6.2 We will know create a plot with the training data, drawing a line of the true relationship in black.**
+**1.6.2:** We will know create a plot with the training data, drawing a line of the true relationship in black.
 ```{r}
 # scatter plot
 plot(ytan~xtan)
@@ -136,7 +136,7 @@ y.actual.sort <- tanh(1.1*sort(xtan)) + 2
 lines(sort(xtan), y.actual.sort)
 ```
 
-**1.6.3 We now create a linear regression model with the training data.**
+**1.6.3** We now create a linear regression model with the training data.
 
 ```{r}
 lmTan <- lm (y~x, data = df.train.tan) # create a linear regression model for y on x
@@ -156,7 +156,7 @@ legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
 
 ```
 
-**1.6.4 We now create a k-NN model with k = 2,3,....,15. Again, we plot the training data with lines for the true relationship, K-NN2 and K-NN12 models.**
+**1.6.4:** We now create a k-NN model with k = 2,3,....,15. Again, we plot the training data with lines for the true relationship, K-NN2 and K-NN12 models.
 
 ```{r}
 df.tan.fx <- data.frame(xtan = sort(xtan)) # data frame with x you want f(x) at, sort x to make plots nice.
@@ -175,7 +175,7 @@ legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
 
 ```
 
-**1.6.5 Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.**
+**1.6.5** Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.
 
 ```{r}
 # vector of possible k values (k=2,3,...,15)
@@ -212,7 +212,7 @@ The k-value that minimizes the MSE for the k-NN model is k=15. At first glance i
 c(lmMSE.tan, min(outMSE))
 ```
 
-**1.7 We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi) + 2 + ei.**
+**1.7** We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi) + 2 + ei.
 
 ```{r}
 # 1.7.1 Generate training and test data
@@ -232,7 +232,7 @@ e.test.sin <- rnorm(10000,0,1) # " " " "
 y.test.sin <- sin(2*x.test.sin) + 2 + e.test.sin
 ```
 
-**1.7.2 Scatter plot of the training data and a line for the actual relationship**
+**1.7.2:** Scatter plot of the training data and a line for the actual relationship
 
 ```{r}
 # scatter plot
@@ -241,7 +241,7 @@ y.actual.sort <- sin(2*sort(xsin)) + 2
 lines(sort(xsin), y.actual.sort)
 ```
 
-**1.7.3 Create a linear regression model for the training data.**
+**1.7.3:** Create a linear regression model for the training data.
 
 ```{r}
 lmsin <- lm (y~x, data = df.train.sin) # create a linear regression model for y on x
@@ -259,7 +259,7 @@ legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
        legend =c("True Relationship","Linear Regression"))
 ```
 
-**1.7.4 We now fit the k-NN model for different values of K and show the same plot with our K=2 and K=12 model.**
+**1.7.4:** We now fit the k-NN model for different values of K and show the same plot with our K=2 and K=12 model.
 
 ```{r}
 df.sin.fx <- data.frame(xsin = sort(xsin)) # data frame with x you want f(x) at, sort x to make plots nice.
@@ -278,7 +278,7 @@ legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
 
 ```
 
-**1.7.5 Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.**
+**1.7.5** Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.
 
 ```{r}
 # vector of possible k values (k=2,3,...,15)
@@ -315,7 +315,7 @@ Here we find that the k-NN model outperforms the linear regression model for all
 c(lmMSE.sin, min(outMSE))
 ```
 
-**1.8 We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi1) + 2 + 0*xi2 + .. + 0*xip + ei where p ranges from 2 to 20.**
+**1.8:** We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi1) + 2 + 0*xi2 + .. + 0*xip + ei where p ranges from 2 to 20.
 
 ```{r}
 # initialize x dataframe for training and test dataset
@@ -335,17 +335,13 @@ for (i in 1:20){
 
 enoise.train <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
 enoise.test <- rnorm(10000,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
-```
 
-
-```{r}
-# different model y = sin(2x) + 2 + e
+# calculate y values: y = sin(2x) + 2 + e
 ynoise.train <- sin(2*df.xtrain$`x 1`) + 2 + enoise.train
 ynoise.test <- sin(2*df.xtest$`x 1`) + 2 + enoise.test
-
 ```
 
-**1.8.2 Plot of data**
+**1.8.2** Plot of data
 
 ```{r}
 # scatter plot
@@ -354,14 +350,10 @@ y.actual.sort <- sin(2*sort(df.xtrain$`x 1`)) + 2
 lines(sort(df.xtrain$`x 1`), y.actual.sort)
 ```
 
-**1.8.3 Fit p-1 Linear Regression Models with p ranging from 2 to 20**
-
-```{r}
-# Create a for loop with p ranging from 2 to 20 to create p-1 linear regression models
-
-```
+**1.8.3** Fit p-1 Linear Regression Models with p ranging from 2 to 20
 
 Now we create a for loop to create p-2 linear regression models with noisy variables ranging from 2 to 20. We also create (p-2)*(k-1) kNN models with k ranging from 2 to 100 for each of the 19 noisy variable models. For each of the 19 noisy variable models, we plot the kNN MSE vs. the model complexity, and we include a dotted line to show the MSE for the respective linear regression model. 
+
 ```{r}
 for (p in 2 : 20){
   df.p.train <- as.data.frame(cbind(df.xtrain[,c(1:p)],y= ynoise.train))
@@ -445,7 +437,6 @@ summary(car.lm)
 ```
 
 Our estimate for the best-fit line is b0 = 55,190 and b1 = -0.03349. Both coefficients are statistically significant and the r-squared is 0.6255. We now plot price vs. mileage and include the best-fit from our linear regression.
-[  ]
 
 ```{r}
 plot(price~mileage, data = df.train, cex = 0.6) # plot scatter plot
@@ -528,6 +519,8 @@ kfbest = kknn(price~mileage,df.train,data.frame(mileage = sort(df.train$mileage)
 
 ```
 
+Based on the cross validation, we find the optimal k = 382. 
+
 Now we create a decision tree and utilize cross validation to find the optimal number of leaves. 
 
 ```{r}
@@ -538,21 +531,21 @@ cars.tree <- rpart(price~mileage,data = df.train, control = rpart.control(minspl
 nbig <- length(unique(cars.tree$where))
 cat("size of big tree ",nbig,"\n")
 
-# print table of cross validation output
+plotcp(cars.tree) # plot results
 (cptable = printcp(cars.tree))
 (bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
-
-plotcp(cars.tree) # plot results
 
 # prune tree
 best.tree <- prune(cars.tree,cp=bestcp)
 
-rpart.plot(best.tree)
+rpart.plot(best.tree) #plot the beset tree
 nbig <- length(unique(best.tree$where))
 cat("size of best tree ",nbig,"\n")
 
 df.train.tree <- df.train[order(df.train$mileage),]
 ```
+
+CV tells us the size of the best tree has 151 leaves. 
 
 Now we'll look at a scatter plot of price vs. mileage and include the best-fit line for the optimal k-NN, Decision Tree and polynomial regression. 
 
@@ -570,11 +563,143 @@ pfit <- predict(best.tree, df.train.tree)
 lines(sort(df.train$mileage),pfit,col="red",lwd=2,cex.lab=2)
 ```
 
-In order to evaluate which of the three models to use to test the data, we compared the MSE of the 3 models that we choose through cross-validation. 
+To evalute the 3 models, we decided to compare the MSE of the 3 models selected through CV and trained on the full training set. In addition to the MSE, other ways to potentially evaluate the 3 models is to re-run multiple simulations of the CV to explore the variance of the 3 models. In addition, it may matter whether we are trying to predict new price points within the mileage range of our data or prices for mileage towards the end of the range. 
 
+```{r}
+# training MSE for each function
+knn.data <- df.train[order(df.train$mileage),]
+bestKNN.MSE <- mean((kfbest$fitted.values - knn.data$price)^2)
+bestTree.MSE <- mean((pfit -df.train.tree$price)^2)
+bestPoly.MSE <- mean((finalpoly$fitted.values-poly.data$price)^2)
 
+model.MSEs <- cbind(bestKNN.MSE,bestTree.MSE,bestPoly.MSE)
+
+model.MSEs
+```
+
+In comparing the training MSE of the 3 model choices, we see that the Tree has the lowest MSE at 84,926,460. We now test how well the Tree model performs on the test data. 
+
+```{r}
+OOS.tree.predict <- predict(best.tree,newdata = df.test)
+OOS.MSE.tree.one <- mean((OOS.tree.predict - df.test$price)^2)
+print(OOS.MSE.tree.one)
+```
+
+On the test data, the Tree model has an MSE = 92,267,910. Thus, we see that the Tree model performs worse on the data it hasn't seen, perhaps illustrating a bias-variance tradeoff given the complexity of the model.  
 
 **2.6:** Now use mileage and year to predict price using k-NN and regression trees
 
+Part 1 - Tune the k-NN parameters
+
+```{r}
+kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
+
+#get variables we want
+df.cvx <- cbind(df.train$mileage,df.train$year)
+colnames(df.cvx) = c("mileage","year")
+y = df.train$price
+mmsc=function(x) {return((x-min(x))/(max(x)-min(x)))}
+df.cvx.scaled = apply(df.cvx,2,mmsc) #apply scaling function to each column of x
+
+cars.cv.two = docvknn(matrix(df.cvx.scaled,ncol=2),df.train$price,kv,nfold=5)
+
+# convert to MSE (docvknn returns error sum of squares)
+cars.cv.two.MSE <- cars.cv.two/length(df.train$mileage)
+
+plot(log(1/kv),cars.cv.two.MSE,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+imin.two = which.min(cars.cv.two.MSE)
+cat("best k is ",kv[imin.two],"\n")
+
+
+# refit model with all training data
+ddf <- as.data.frame(cbind(price=y,df.cvx.scaled))
+kfbest.two = kknn(price~mileage+year,ddf,ddf,k=kv[imin.two],kernel = "rectangular")
+```
+
+We find that k=62 optimizes the MSE of the kNN model. At k=62, the MSE = 29,055,834. 
+
+Part 2 - Tune the Regression Tree
+
+```{r}
+# create a big tree
+cars.tree.two <- rpart(price~mileage+year,data = df.train, control = rpart.control(minsplit = 5,cp=0.0001,xval=5))
+
+df.train.tree.two <- df.train[order(df.train$year,df.train$mileage),]
+
+# stats on big tree
+nbig <- length(unique(cars.tree.two$where))
+cat("size of big tree ",nbig,"\n")
+
+# Utilize CV to find the best tree
+plotcp(cars.tree.two) # plot results
+(cptable = printcp(cars.tree.two))
+(bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
+
+# prune tree
+best.tree.two <- prune(cars.tree.two,cp=bestcp)
+length(unique(best.tree.two$where))
+
+#plot the best tree
+rpart.plot(best.tree.two)
+
+```
+
+We find that the best tree has 36 leaves. 
+
+Part 3 - Test against test set
+
+```{r}
+# predict for test set using kNN
+df.test.scale <- as.data.frame(apply(as.data.frame(cbind(df.test$mileage,df.test$year)),2,mmsc))
+colnames(df.test.scale)[1:2] <- c("mileage","year")
+pred.knn.two <- kknn(price ~ mileage + year,ddf,df.test.scale,k=imin.two,kernel = "rectangular")
+
+# calculate MSE on test set
+OOS.MSE.KNN.two <- mean((pred.knn.two$fitted.values - df.test$price)^2)
+
+# Predict for test set using decision tree
+pred.tree.two <- predict(best.tree.two,newdata = df.test)
+
+# calculate MSE on test set
+OOS.MSE.Tree.two <- mean((pred.tree.two - df.test$price)^2)
+
+cbind(OOS.MSE.KNN.two, OOS.MSE.Tree.two)
+
+```
+
+Against the test set, we see that the kNN model has a MSE of 42,475,617 and the Tree has a MSE of 30,151,132. 
+
+Now we can compare how the kNN and decision tree models changed when we only used mileage as a variable versus when we added the year as a variable. Going back to question 2.5, the training set MSE's ranged from 84 million to 91 million. After adding the 'year' variable, the test set MSE's now range from ~30 million to 42 million. A large improvement. 
+
+Also from Question 2.5, the optimal k value was 382 and the best tree had 151 leaves. Now, the optimal k value is 62 and the best tree has 36 leaves. By adding another variable, the kNN model needs a smaller range of xi's to hone in on the predicted value because it has additional information from the second variable, year. For the decision tree, additional information from the added variable allows the tree to utilize less leaves to cut the data.
+
+The data suggests both models perform better with the additional variable. 
+
 **2.7:** Last, we will create a regression tree that utilizes all of the variables in the data set
 
+```{r}
+cars.tree.all <- rpart(price~.,data = df.train, control = rpart.control(minsplit = 5,cp=0.0001,xval=5))
+
+# stats on big tree
+nbig <- length(unique(cars.tree.all$where))
+cat("size of big tree ",nbig,"\n")
+
+# print table of cross validation output
+(cptable = printcp(cars.tree.all))
+(bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
+
+plotcp(cars.tree.all) # plot results
+
+# prune tree
+best.tree.all <- prune(cars.tree.all,cp=bestcp)
+length(unique(best.tree.all$where))
+
+rpart.plot(best.tree.all)
+
+## Get Test MSE
+pred.tree.all <- predict(best.tree.all,newdata = df.test)
+OOS.MSE.Tree.all <- mean((pred.tree.all - df.test$price)^2)
+print(OOS.MSE.Tree.all)
+```
+
+Using all of the variables, the big tree has 97 leaves. After using CV to prune the tree, we find that the best tree has 91 leaves. Finally, we find that the Tree has a MSE = 19,286,841 against the test set. 
