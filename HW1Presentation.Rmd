@@ -1,0 +1,580 @@
+---
+title: 'ML: Homework #1'
+author: "Curt Ginder, Josh Elder, Connie Fan"
+date: "1/18/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1 - Running a simulation to explore the bias-variance trade-off using linear regression versus k-NN.
+
+**1.1 First, we will load the k-NN library and set a seed factor to maintain reproducibility.**
+
+```{r}
+library(kknn)
+set.seed(99)
+```
+
+Next, we will create a synthetic training set using 100 independent draws of x from a standard normal distribution as well as an error factor, also from a standard normal distribution. We then generate yi from the linear model yi = 1.8xi + 2 + ei.
+
+```{r}
+# create training data
+x.train <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1
+e.train <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+y.train <- (1.8*x.train + 2 + e.train)
+
+# create test set
+x.test <- rnorm(10000,0,1) # same thing as above, 10,000 draws this time though
+e.test <- rnorm(10000,0,1) # " " " "
+y.test <- (1.8*x.test + 2 + e.test)
+```
+
+**1.2 We now create a scatter plot of our training data and draw a black line that represents the true relationship.**
+
+```{r}
+plot(y.train~x.train)
+abline(a = 2, b = 1.8,lwd = 2) # plot a line of what the equation should be (without error)
+```
+
+**1.3 We now use ordinary linear regression to fit a model of the form y = bo + b1*X + e based on the training data. **
+
+```{r}
+# Q1.3 Ordinary Linear Regression w/ training data
+df.train <- as.data.frame(cbind(x.train,y.train)) # build data frame for data of interest
+colnames(df.train)[1:2] <- c("x","y") # rename to standard x and y variables to more easily compare to testing data
+lmTrain <- lm(y ~ x,data = df.train) # create a linear regression model for y on x (remember y has error term built in)
+summary(lmTrain) # summary stats/coefficients for model
+```
+
+From the summary statistics, our estimate of the linear coefficients are bo = 1.92 and b1 = 1.88, both of which are statistically significant. This is a pretty good estimate relative to the true model with bo = 1.8 and b1 = 2. Below is a plot of the data with the true relationship shown with a black line and our fitted model with a dashed blue line. 
+
+```{r}
+plot(y.train~x.train)
+abline(a = 2, b = 1.8,lwd = 2) # plot a line of what the equation should be (without error)
+abline(lmTrain, col = "blue",lwd = 2, lty = "dashed") # plot the regression line
+legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
+       legend =c("True Relationship","Linear Regression Fit"))
+```
+
+**1.4 We  now fit a k-NN model, experimenting with k=2,3....,15. We once again plot our training data with the true relationship as well as our predicted fit for k=2 and k=12.**
+
+```{r}
+df.fx <- data.frame(x.train = sort(x.train)) # data frame with x you want f(x) at, sort x to make plots nice.
+knn2 = kknn(y.train~x.train,df.train,df.fx, k = 2, kernel = "rectangular")  # create KNN model with k = 2
+knn12 = kknn(y.train~x.train,df.train,df.fx, k = 12, kernel = "rectangular") # create KNN model with k = 12
+plot(y.train~x.train) # plot same x/y scatter as above
+abline(a = 2, b = 1.8,col = "black",lwd = 2) # add in true relationship
+lines(df.fx$x.train,knn2$fitted.values,col="red",lwd=2) # add in KNN2 plot of predicted values
+lines(df.fx$x.train,knn12$fitted.values,col="green",lwd=2)  # add in KNN12 plot of predicted values
+legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
+       legend =c("True Relationship","KNN2","KNN12"))
+```
+
+**1.5 Based on visuals from the plots of training data, it appears the linear model does a better job than the k-NN models of fitting the true relationship. We will now evaluate the mean squared error of our models using our test set. The below plot explores the MSE versus k-NN model complexity. The dashed line represents the test mean squared error of the linear regression model.**
+
+```{r}
+df.test <- as.data.frame(cbind(x.test,y.test)) # build data frame for test set data of interest
+df.fxtest <- data.frame(x.test = sort(x.test)) # data frame with x you want f(x) at, sort x to make plots nice.
+
+colnames(df.test)[1:2] <- c("x","y")
+
+kvec=2:15; nk=length(kvec)
+outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+
+for(i in 1:nk) {
+  near = kknn(y~x,df.train,df.test,k=kvec[i],kernel = "rectangular")
+  MSE = mean((df.test$y-near$fitted)^2)
+  outMSE[i] = MSE
+}
+
+#plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+plot(log(1/kvec),outMSE,ylab="Mean Squared Error",ylim = c(1,1.7))
+imin = which.min(outMSE)
+cat("best k is ",kvec[imin],"\n")
+
+# add in horizontal dashed line representing test set mean squared error using linear regression
+# predict test set "Y" using linear model from training set data
+
+lmTestPred <- predict(lmTrain,newdata = df.test)
+# calculate LM MSE
+lmMSE <- mean((df.test$y- lmTestPred)^2)
+abline(h=lmMSE,lwd = 2,lty = "dashed")
+
+```
+
+The minimum MSE for the k-NN model is at k=10. However, looking at the plot, we see that the linear regression model performs much better than the k-NN model at all simulated values of K. Thus, our linear regression model is more appropriate than the k-NN to predict the actual relationship, which is linear in form. 
+
+**1.6 We will now replicate the steps completed in 1.1 - 1.5, only this time for the model yi = tanh(1.1*xi) + 2 + ei.**
+
+```{r}
+#1.6.1 - creating training and test sets
+xtan <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1
+# sample error
+etan <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+
+# different model y = tanh(1.1 × xi) + 2 + ei
+ytan <- tanh(1.1 * xtan) +2 + etan
+
+df.train.tan <- data.frame(cbind(xtan,ytan))
+colnames(df.train.tan)[1:2] <- c("x","y")
+
+# create test set
+x.test.tan <- rnorm(10000,0,1) # same thing as above, 10,000 draws this time though
+e.test.tan <- rnorm(10000,0,1) # " " " "
+y.test.tan <- tanh(1.1*x.test.tan) + 2 + e.test.tan
+```
+
+
+**1.6.2 We will know create a plot with the training data, drawing a line of the true relationship in black.**
+```{r}
+# scatter plot
+plot(ytan~xtan)
+y.actual.sort <- tanh(1.1*sort(xtan)) + 2
+lines(sort(xtan), y.actual.sort)
+```
+
+**1.6.3 We now create a linear regression model with the training data.**
+
+```{r}
+lmTan <- lm (y~x, data = df.train.tan) # create a linear regression model for y on x
+summary(lmTan) # summary stats/coefficients for model
+```
+
+Our linear model estimates b0 = 2.066 and b1 = 0.763. We notice that although the coefficients are still statistically significant, our R-squared has come down to 0.334. 
+
+Now we create a plot with lines for the true relationship and estimated linear model. 
+
+```{r}
+plot(ytan~xtan)
+lines(sort(xtan), y.actual.sort)
+abline(lmTan, col = "blue",lwd = 1, lty="dashed") # plot the regression line
+legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
+       legend =c("True Relationship","Linear Regression"))
+
+```
+
+**1.6.4 We now create a k-NN model with k = 2,3,....,15. Again, we plot the training data with lines for the true relationship, K-NN2 and K-NN12 models.**
+
+```{r}
+df.tan.fx <- data.frame(xtan = sort(xtan)) # data frame with x you want f(x) at, sort x to make plots nice.
+colnames(df.tan.fx)[1] <- "x"  # rename to x for simplicity
+
+knn.tan.2 = kknn(y~x,df.train.tan,df.tan.fx, k = 2, kernel = "rectangular")  # create KNN model with k = 2
+knn.tan.12 = kknn(y~x,df.train.tan,df.tan.fx, k = 12, kernel = "rectangular") # create KNN model with k = 12
+plot(ytan~xtan) # plot same x/y scatter as above
+lines(sort(xtan), y.actual.sort)
+lines(df.tan.fx$x,knn.tan.2$fitted.values,col="red",lwd=2) # add in KNN2 plot of predicted values
+lines(df.tan.fx$x,knn12$fitted.values,col="green",lwd=2)  # add in KNN12 plot of predicted values
+
+# add legend to plot
+legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
+       legend =c("True Relationship","KNN2","KNN12"))
+
+```
+
+**1.6.5 Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.**
+
+```{r}
+# vector of possible k values (k=2,3,...,15)
+df.test.tan <- as.data.frame(cbind(x.test.tan,y.test.tan)) # build data frame for test set data of interest
+df.tan.fxtest <- data.frame(x.test.tan = sort(x.test.tan)) # data frame with x you want f(x) at, sort x to make plots nice.
+
+colnames(df.test.tan)[1:2] <- c("x","y")
+
+kvec=2:15; nk=length(kvec)
+tan.outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+
+for(i in 1:nk) {
+  near = kknn(y~x,df.train.tan,df.test.tan,k=kvec[i],kernel = "rectangular")
+  MSE = mean((df.test.tan$y-near$fitted)^2)
+  outMSE[i] = MSE
+}
+
+#plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+plot(log(1/kvec),outMSE,ylab="Mean Squared Error",ylim = c(1,1.7))
+imin = which.min(outMSE)
+cat("best k is ",kvec[imin],"\n")
+
+# add in horizontal dashed line representing test set mean squared error using linear regression
+# predict test set "Y" using linear model from training set data
+lmTestPred.tan <- predict(lmTan,newdata = df.test.tan)
+# calculate LM MSE
+lmMSE.tan <- mean((df.test.tan$y- lmTestPred.tan)^2)
+abline(h=lmMSE.tan,lwd = 2,lty = "dashed")
+```
+
+The k-value that minimizes the MSE for the k-NN model is k=15. At first glance it appears the MSE for the optimal k-NN model and linear regression model are very close. The MSE for the linear regression model is 1.058250 and the MSE for the k-NN model at k=15 is 1.057912. Based on this simulation, our k-NN model at k=15 is just slightly better than the linear regression model. 
+
+```{r}
+c(lmMSE.tan, min(outMSE))
+```
+
+**1.7 We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi) + 2 + ei.**
+
+```{r}
+# 1.7.1 Generate training and test data
+xsin <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1
+# sample error
+esin <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+
+# different model y = sin(2x) + 2 + e
+ysin <- sin(2 * xsin) +2 + esin
+
+df.train.sin <- data.frame(cbind(xsin,ysin))
+colnames(df.train.sin)[1:2] <- c("x","y")
+
+# create test set
+x.test.sin <- rnorm(10000,0,1) # same thing as above, 10,000 draws this time though
+e.test.sin <- rnorm(10000,0,1) # " " " "
+y.test.sin <- sin(2*x.test.sin) + 2 + e.test.sin
+```
+
+**1.7.2 Scatter plot of the training data and a line for the actual relationship**
+
+```{r}
+# scatter plot
+plot(ysin~xsin)
+y.actual.sort <- sin(2*sort(xsin)) + 2
+lines(sort(xsin), y.actual.sort)
+```
+
+**1.7.3 Create a linear regression model for the training data.**
+
+```{r}
+lmsin <- lm (y~x, data = df.train.sin) # create a linear regression model for y on x
+summary(lmsin) # summary stats/coefficients for model
+```
+
+Here we see our estimate for the model is b0 = 2.1444 and b1 = 0.4475. The r-squared has decreased to 0.103. Now plotting the data with the actual relationship and linear model estimate. 
+
+```{r}
+plot(ysin~xsin)
+y.actual <- sin(2*xsin) + 2
+lines(sort(xsin), y.actual.sort)
+abline(lmsin, col = "blue",lwd = 1, lty="dashed") # plot the regression line
+legend("topleft", bty="n",fill=c("black","blue"),cex = .75,
+       legend =c("True Relationship","Linear Regression"))
+```
+
+**1.7.4 We now fit the k-NN model for different values of K and show the same plot with our K=2 and K=12 model.**
+
+```{r}
+df.sin.fx <- data.frame(xsin = sort(xsin)) # data frame with x you want f(x) at, sort x to make plots nice.
+colnames(df.sin.fx)[1] <- "x"  # rename to x for simplicity
+
+knn.sin.2 = kknn(y~x,df.train.sin,df.sin.fx, k = 2, kernel = "rectangular")  # create KNN model with k = 2
+knn.sin.12 = kknn(y~x,df.train.sin,df.sin.fx, k = 12, kernel = "rectangular") # create KNN model with k = 12
+plot(ysin~xsin) # plot same x/y scatter as above
+lines(sort(xsin), y.actual.sort) #actual model
+lines(df.sin.fx$x,knn.sin.2$fitted.values,col="red",lwd=2) # add in KNN2 plot of predicted values
+lines(df.sin.fx$x,knn12$fitted.values,col="green",lwd=2)  # add in KNN12 plot of predicted values
+
+# add legend to plot
+legend("topleft", bty="n",fill=c("black","red","green"),cex = .75,
+       legend =c("True Relationship","KNN2","KNN12"))
+
+```
+
+**1.7.5 Now we evaluate our models using the test set. We plot the MSE vs. the K-NN model complexity, with a dotted line showing the MSE for the linear regression model.**
+
+```{r}
+# vector of possible k values (k=2,3,...,15)
+df.test.sin <- as.data.frame(cbind(x.test.sin,y.test.sin)) # build data frame for test set data of interest
+df.sin.fxtest <- data.frame(x.test.sin = sort(x.test.sin)) # data frame with x you want f(x) at, sort x to make plots nice.
+
+colnames(df.test.sin)[1:2] <- c("x","y")
+
+kvec=2:15; nk=length(kvec)
+sin.outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+
+for(i in 1:nk) {
+  near = kknn(y~x,df.train.sin,df.test.sin,k=kvec[i],kernel = "rectangular")
+  MSE = mean((df.test.sin$y-near$fitted)^2)
+  outMSE[i] = MSE
+}
+
+#plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+plot(log(1/kvec),outMSE,ylab="Mean Squared Error",ylim = c(1,1.7))
+imin = which.min(outMSE)
+cat("best k is ",kvec[imin],"\n")
+
+# add in horizontal dashed line representing test set mean squared error using linear regression
+# predict test set "Y" using linear model from training set data
+lmTestPred.sin <- predict(lmsin,newdata = df.test.sin)
+# calculate LM MSE
+lmMSE.sin <- mean((df.test.sin$y- lmTestPred.sin)^2)
+abline(h=lmMSE.sin,lwd = 2,lty = "dashed")
+```
+
+Here we find that the k-NN model outperforms the linear regression model for all values of K except k=2. This makes sense because the true relationship between Y and X is strongly non-linear. The value of K that minimizes the MSE is K=7, and the MSE is 1.18. 
+
+```{r}
+c(lmMSE.sin, min(outMSE))
+```
+
+**1.8 We will now replicate the steps completed in 1.1 - 1.5 for the model yi = sin(2*xi1) + 2 + 0*xi2 + .. + 0*xip + ei where p ranges from 2 to 20.**
+
+```{r}
+# initialize x dataframe for training and test dataset
+df.xtrain <- data.frame(rep(0,100))
+df.xtest <- data.frame(rep(0,10000))
+pvals <- (1:20)
+npvals <- length(pvals)
+
+# create data frame of xip values for training and test sets, where p ranges from 2 to 20. 
+for (i in 1:20){
+  df.xtrain[,i] <- rnorm(100,0,1)
+  colnames(df.xtrain)[i] <- paste("x",i)
+  
+  df.xtest[,i] <- rnorm(10000,0,1)
+  colnames(df.xtest)[i] <- paste("x",i)
+}
+
+enoise.train <- rnorm(100,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+enoise.test <- rnorm(10000,0,1) # 100 random draws with a mean of 0 and a st.d. of 1 for error term
+```
+
+
+```{r}
+# different model y = sin(2x) + 2 + e
+ynoise.train <- sin(2*df.xtrain$`x 1`) + 2 + enoise.train
+ynoise.test <- sin(2*df.xtest$`x 1`) + 2 + enoise.test
+
+```
+
+**1.8.2 Plot of data**
+
+```{r}
+# scatter plot
+plot(ynoise.train~df.xtrain$`x 1`)
+y.actual.sort <- sin(2*sort(df.xtrain$`x 1`)) + 2
+lines(sort(df.xtrain$`x 1`), y.actual.sort)
+```
+
+**1.8.3 Fit p-1 Linear Regression Models with p ranging from 2 to 20**
+
+```{r}
+# Create a for loop with p ranging from 2 to 20 to create p-1 linear regression models
+
+```
+
+Now we create a for loop to create p-2 linear regression models with noisy variables ranging from 2 to 20. We also create (p-2)*(k-1) kNN models with k ranging from 2 to 100 for each of the 19 noisy variable models. For each of the 19 noisy variable models, we plot the kNN MSE vs. the model complexity, and we include a dotted line to show the MSE for the respective linear regression model. 
+```{r}
+for (p in 2 : 20){
+  df.p.train <- as.data.frame(cbind(df.xtrain[,c(1:p)],y= ynoise.train))
+  df.p.test <- as.data.frame(cbind(df.xtest[,c(1:p)],y = ynoise.test))
+  
+  kvec=seq(from = 2, to = 100, by = 2); nk=length(kvec)
+  noise.outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+  
+  for(i in 1:nk) {
+    near = kknn(y~.,df.p.train,df.p.test,k=kvec[i],kernel = "rectangular")
+    MSE = mean((df.p.test$y-near$fitted)^2)
+    noise.outMSE[i] = MSE
+  }
+  #plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+  plot(log(1/kvec),noise.outMSE,ylab="Mean Squared Error",main = paste("P =",p))
+  imin = which.min(noise.outMSE)
+  cat("best k is ",kvec[imin],"\n")
+  
+  # linear regression
+  lmnoise <- lm(y~.,df.p.train) # create a linear regression model for y on x
+  lmnoisePred <- predict(lmnoise,newdata = df.p.test)
+  # calculate LM MSE
+  lmMSE.noise <- mean((df.p.test$y- lmnoisePred)^2)
+  abline(h=lmMSE.noise,lwd = 2,lty = "dashed")
+}
+```
+
+Examining the plots, we see that over all values of p, the optimal k-NN model has a lower MSE than the linear regression models. This is likely because regardless of how many noisy variables we include into the model, the true relationship remains strongly non-linear. However, it does appear that the linear regression model improves as the number of noisy variables increases, likely because the linear model can assign a small coefficient to the noisy variables, whereas it is more difficult to the k-NN model to adjust its "distance" parameters. 
+
+
+## Question 2 - Predicting the price of used cars
+
+First, we need to install the necessary packages and upload the data. 
+
+```{r}
+## Week 1 Question 2 HW
+# install.packages("rpart.plot")
+
+library(proxy)
+library(rpart)      # package for trees
+library(rpart.plot) # package that enhances plotting capabilities for rpart
+
+
+## load cvknn library
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/docv.R", "docv.R")
+source("docv.R")
+
+set.seed(99)
+
+# download file (URL provided in HW Assignment)
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/MLClassData/master/UsedCars/UsedCars.csv",destfile = "UsedCars.csv")
+
+# read file into R
+Used.Cars <- read.csv("UsedCars.csv")
+
+# explore header of file
+head(Used.Cars)
+summary(Used.Cars)
+```
+
+**2.1:**
+
+The data set lists the price of cars in addition to a number of qualitative and quantitative variables, such as mileage, year, region, trim, color, and others. A couple obvious uses come to mind. First, as a potential buyer, I might be able to use the data to predict how much a car is worth. I might then be able to use this data to my advantage in negotiation with dealers. On the opposite side, dealers may be able to predict car value in order to inform pricing info. Finally, companies could collect and analyze the data and sell the information to potential buyers or sellers. The data could also inform buyers or sellers as to whether there are certain obvious "steps" in car value based on crossing a certain mileage or year threshold. 
+
+*2.2:* Split the data into two parts, with the training set consisting of 75% of the observations and the test set consisting of 25% of the observations. 
+
+```{r}
+# get number of train samples that need to be drawn (75% * number of obs, rounded to nearest int)
+ntrain <- round(.75*nrow(Used.Cars))
+tr <- sample(1:nrow(Used.Cars),ntrain)
+df.train <- Used.Cars[tr,] # training data
+df.test <- Used.Cars[-tr,] # test data
+nrow(df.train)
+nrow(df.test)
+```
+
+**2.3:** Create an OLR of the form price = bo + b1*mileage + e using the training data
+```{r}
+car.lm <- lm(price~mileage, data = df.train)
+summary(car.lm)
+```
+
+Our estimate for the best-fit line is b0 = 55,190 and b1 = -0.03349. Both coefficients are statistically significant and the r-squared is 0.6255. We now plot price vs. mileage and include the best-fit from our linear regression.
+[  ]
+
+```{r}
+plot(price~mileage, data = df.train, cex = 0.6) # plot scatter plot
+abline(car.lm, col = "blue",lwd = 3, lty = "dashed") # plot the regression line
+```
+
+**2.4:** As we see in the above plot, the relationship does not look linear. Thus, we will attempt to fit a polynomial regression of the form price = bo + b1*mileage + b2*mileage^2 +... + bd*mileage^d. We'll use cross validation to find the optimal degree of the polynomial. 
+
+```{r}
+set.seed(99)
+
+# test possible polynomial values 
+dvec <- 1:10 # vector for possible polynomial terms
+nd <- length(dvec) # total number of polynomial terms tried
+
+dfolds <- 1:10
+nfolds <- length(dfolds) # number of folds for CV
+fold <- sample(nfolds, nrow(df.train), replace = TRUE)
+
+outMSE <- rep(0,nd) #will will put the average out-of-sample MSE here for each d
+foldMSE <- rep(0,nfolds) # for calculating each fold's MSE
+
+
+for(i in 1:nd) {     # cycle on all possible d polynomial terms
+  for (j in 1:nfolds) {  # rerun on number of folds
+    take <- fold == j   #create folds
+    foldj <- df.train[take,] #test fold
+    foldOther <- df.train[!take,] #train folds
+    
+    poly <- lm(price ~ poly(mileage,i),data=foldOther) #fit polynomial
+    pred <- predict(poly,foldj) #predict y values
+    foldMSE[j] <- mean((pred - foldj$price)^2) #calculate the average MSE over the folds
+    
+  }
+  outMSE[i] = mean(foldMSE) #store the average MSE for each of the 10 polynomial models
+}
+imin = which.min(outMSE)
+cat("optimal polynomial degree is ",dvec[imin],"\n")
+plot(dvec,outMSE)
+
+```
+
+Using cross validation, we find that d=7 is the degree of polynomial that minimizes the MSE. We now refit the d=7 polynomial to the entire training data and create a scatter plot of the data and our best fit line. 
+
+```{r}
+# refit polynomial on all training data
+# sort data to plot polynomial fitted values in order
+poly.data <- df.train[order(df.train$mileage),]
+
+# retrain final model on best polynomial term as determined above
+finalpoly <- lm(price ~ poly(mileage,imin),data = poly.data)
+
+
+# replot scatter
+plot(price~mileage, data = df.train, cex = 0.6)
+
+# add polynomial line 
+lines(fitted(finalpoly)~ poly.data$mileage, col = "green" , lwd = 3)
+```
+
+**2.5:** Create k-NN and regression tree models to find the relationship between price and mileage. 
+
+First we use the docvknn function to find the optimal k-value using 5 fold cross validation.
+
+```{r}
+# Create the KNN model
+kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
+
+cars.cv = docvknn(matrix(df.train$mileage,ncol=1),df.train$price,kv,nfold=5)
+
+# convert to MSE (docvknn returns error sum of squares)
+cars.cv <- cars.cv/length(df.train$mileage)
+
+plot(log(1/kv),cars.cv,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+imin = which.min(cars.cv)
+cat("best k is ",kv[imin],"\n")
+
+# refit model with all training data
+kfbest = kknn(price~mileage,df.train,data.frame(mileage = sort(df.train$mileage)),k=kv[imin],kernel = "rectangular")
+
+```
+
+Now we create a decision tree and utilize cross validation to find the optimal number of leaves. 
+
+```{r}
+# create a big tree
+cars.tree <- rpart(price~mileage,data = df.train, control = rpart.control(minsplit = 5,cp=0.0001,xval=5))
+
+# stats on big tree
+nbig <- length(unique(cars.tree$where))
+cat("size of big tree ",nbig,"\n")
+
+# print table of cross validation output
+(cptable = printcp(cars.tree))
+(bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
+
+plotcp(cars.tree) # plot results
+
+# prune tree
+best.tree <- prune(cars.tree,cp=bestcp)
+
+rpart.plot(best.tree)
+nbig <- length(unique(best.tree$where))
+cat("size of best tree ",nbig,"\n")
+
+df.train.tree <- df.train[order(df.train$mileage),]
+```
+
+Now we'll look at a scatter plot of price vs. mileage and include the best-fit line for the optimal k-NN, Decision Tree and polynomial regression. 
+
+```{r}
+plot(price ~ mileage, data = df.train, cex = 0.6)
+
+# poly plot
+lines(fitted(finalpoly)~ poly.data$mileage, col = "green" , lwd = 3)
+
+# KNN plot
+lines(sort(df.train$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
+
+# trees plot
+pfit <- predict(best.tree, df.train.tree)
+lines(sort(df.train$mileage),pfit,col="red",lwd=2,cex.lab=2)
+```
+
+In order to evaluate which of the three models to use to test the data, we compared the MSE of the 3 models that we choose through cross-validation. 
+
+
+
+**2.6:** Now use mileage and year to predict price using k-NN and regression trees
+
+**2.7:** Last, we will create a regression tree that utilizes all of the variables in the data set
+
