@@ -144,14 +144,19 @@ pfit <- predict(best.tree, df.train.tree)
 lines(sort(df.train$mileage),pfit,col="blue",lwd=2,cex.lab=2)
 
 # training MSE for each function
-bestKNN.MSE <- min(cars.cv)
+knn.data <- df.train[order(df.train$mileage),]
+bestKNN.MSE <- mean((kfbest$fitted.values - knn.data$price)^2)
 bestTree.MSE <- mean((pfit -df.train.tree$price)^2)
-
-bestPoly.MSE <- ""
+bestPoly.MSE <- mean((finalpoly$fitted.values-poly.data$price)^2)
 
 model.MSEs <- cbind(bestKNN.MSE,bestTree.MSE,bestPoly.MSE)
-  
-### Select the best function
+
+model.MSEs
+
+### Select the best function - going with the Tree because it has the lowest in sample MSE
+OOS.tree.predict <- predict(best.tree,newdata = df.test)
+OOS.MSE.tree.one <- mean((OOS.tree.predict - df.test$price)^2)
+
   
 #### Question 2.6.1 KNN
 kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
