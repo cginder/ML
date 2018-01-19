@@ -361,20 +361,36 @@ lines(sort(df.xtrain$`x 1`), y.actual.sort)
 
 ```
 
-**1.8.4 Create (p-1)*(k -1) k-NN models [p ranges from 2 to 20 and k ranges from 2 to 15]**
-
+Now we create a for loop to create p-2 linear regression models with noisy variables ranging from 2 to 20. We also create (p-2)*(k-1) kNN models with k ranging from 2 to 100 for each of the 19 noisy variable models. For each of the 19 noisy variable models, we plot the kNN MSE vs. the model complexity, and we include a dotted line to show the MSE for the respective linear regression model. 
 ```{r}
-# Create a for loop with p ranging from 2 to 20 and k ranging from 2 to 15 to create (p-1)*(k-1) iterations of a k-NN function
-
+for (p in 2 : 20){
+  df.p.train <- as.data.frame(cbind(df.xtrain[,c(1:p)],y= ynoise.train))
+  df.p.test <- as.data.frame(cbind(df.xtest[,c(1:p)],y = ynoise.test))
+  
+  kvec=seq(from = 2, to = 100, by = 2); nk=length(kvec)
+  noise.outMSE = rep(0,nk) #will will put the out-of-sample MSE here
+  
+  for(i in 1:nk) {
+    near = kknn(y~.,df.p.train,df.p.test,k=kvec[i],kernel = "rectangular")
+    MSE = mean((df.p.test$y-near$fitted)^2)
+    noise.outMSE[i] = MSE
+  }
+  #plot Mean Squared Error against log(1/k) for k = 2,3,...,15
+  plot(log(1/kvec),noise.outMSE,ylab="Mean Squared Error",main = paste("P =",p))
+  imin = which.min(noise.outMSE)
+  cat("best k is ",kvec[imin],"\n")
+  
+  # linear regression
+  lmnoise <- lm(y~.,df.p.train) # create a linear regression model for y on x
+  lmnoisePred <- predict(lmnoise,newdata = df.p.test)
+  # calculate LM MSE
+  lmMSE.noise <- mean((df.p.test$y- lmnoisePred)^2)
+  abline(h=lmMSE.noise,lwd = 2,lty = "dashed")
+}
 ```
 
-**1.8.5 Create p-1 plots, with MSE on the y-axis, log(1/k) on the x-axis.** 
+Examining the plots, we see that over all values of p, the optimal k-NN model has a lower MSE than the linear regression models. This is likely because regardless of how many noisy variables we include into the model, the true relationship remains strongly non-linear. However, it does appear that the linear regression model improves as the number of noisy variables increases, likely because the linear model can assign a small coefficient to the noisy variables, whereas it is more difficult to the k-NN model to adjust its "distance" parameters. 
 
-Each of the p-1 charts will have: 1) set of k-NN data points representing the MSE at different values of K and 2) MSE of linear regression model. Goal is to see how the # of noisy variables affects k-NN and linear regression differently
-
-```{r}
-
-```
 
 ## Question 2 - Predicting the price of used cars
 
@@ -501,7 +517,7 @@ kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
 cars.cv = docvknn(matrix(df.train$mileage,ncol=1),df.train$price,kv,nfold=5)
 
 # convert to MSE (docvknn returns error sum of squares)
-cars.cv <- sqrt(cars.cv/length(df.train$mileage))
+cars.cv <- cars.cv/length(df.train$mileage)
 
 plot(log(1/kv),cars.cv,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
 imin = which.min(cars.cv)
@@ -534,6 +550,8 @@ best.tree <- prune(cars.tree,cp=bestcp)
 rpart.plot(best.tree)
 nbig <- length(unique(best.tree$where))
 cat("size of best tree ",nbig,"\n")
+
+df.train.tree <- df.train[order(df.train$mileage),]
 ```
 
 Now we'll look at a scatter plot of price vs. mileage and include the best-fit line for the optimal k-NN, Decision Tree and polynomial regression. 
@@ -547,11 +565,16 @@ lines(fitted(finalpoly)~ poly.data$mileage, col = "green" , lwd = 3)
 # KNN plot
 lines(sort(df.train$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
 
-
 # trees plot
-pfit <- predict(best.tree)
+pfit <- predict(best.tree, df.train.tree)
 lines(sort(df.train$mileage),pfit,col="red",lwd=2,cex.lab=2)
-## need to fix this so that the pfit values correspond to the ordered mileage data points
 ```
 
+In order to evaluate which of the three models to use to test the data, we compared the MSE of the 3 models that we choose through cross-validation. 
+
+
+
 **2.6:** Now use mileage and year to predict price using k-NN and regression trees
+
+**2.7:** Last, we will create a regression tree that utilizes all of the variables in the data set
+
