@@ -143,28 +143,63 @@ lines(sort(df.train$mileage),kfbest$fitted,col="red",lwd=2,cex.lab=2)
 pfit <- predict(best.tree, df.train.tree)
 lines(sort(df.train$mileage),pfit,col="blue",lwd=2,cex.lab=2)
 
-# MSE for each function
-bestKNN.MSE <- which.min(cars.cv)
-bestTree.MSE <- ""
+# training MSE for each function
+bestKNN.MSE <- min(cars.cv)
+bestTree.MSE <- mean((pfit -df.train.tree$price)^2)
+
 bestPoly.MSE <- ""
 
 model.MSEs <- cbind(bestKNN.MSE,bestTree.MSE,bestPoly.MSE)
   
 ### Select the best function
   
-#### Question 2.6
+#### Question 2.6.1 KNN
 kv =seq(from = 2, to = 750, by = 20); nk=length(kv)
 
-cars.cv = docvknn(matrix(cbind(df.train$mileage,df.train$,ncol=1),df.train$price,kv,nfold=5)
+#get variables we want
+df.cvx <- cbind(df.train$mileage,df.train$year)
+colnames(df.cvx) = c("mileage","year")
+y = df.train$price
+mmsc=function(x) {return((x-min(x))/(max(x)-min(x)))}
+df.cvx.scaled = apply(df.cvx,2,mmsc) #apply scaling function to each column of x
+
+
+cars.cv.two = docvknn(matrix(df.cvx.scaled,ncol=2),df.train$price,kv,nfold=5)
 
 # convert to MSE (docvknn returns error sum of squares)
-cars.cv <- cars.cv/length(df.train$mileage)
+cars.cv.two.MSE <- cars.cv.two/length(df.train$mileage)
 
-plot(log(1/kv),cars.cv,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
-imin = which.min(cars.cv)
-cat("best k is ",kv[imin],"\n")
+plot(log(1/kv),cars.cv.two.MSE,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+imin.two = which.min(cars.cv.two.MSE)
+cat("best k is ",kv[imin.two],"\n")
 
 # refit model with all training data
-kfbest = kknn(price~mileage,df.train,data.frame(mileage = sort(df.train$mileage)),k=kv[imin],kernel = "rectangular")
+ddf <- as.data.frame(cbind(price=y,df.cvx.scaled))
+kfbest.two = kknn(price~mileage+year,ddf,ddf,k=kv[imin.two],kernel = "rectangular")
 
+#### Question 2.6.2 Trees
+
+# create a big tree
+cars.tree.two <- rpart(price~mileage+year,data = df.train, control = rpart.control(minsplit = 5,cp=0.0001,xval=5))
+
+df.train.tree.two <- df.train[order(df.train$year,df.train$mileage),]
+
+# stats on big tree
+nbig <- length(unique(cars.tree.two$where))
+cat("size of big tree ",nbig,"\n")
+
+# print table of cross validation output
+(cptable = printcp(cars.tree.two))
+(bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
+
+plotcp(cars.tree.two) # plot results
+
+# prune tree
+best.tree.two <- prune(cars.tree.two,cp=bestcp)
+
+rpart.plot(best.tree.two)
+
+#### Questions 2.6.3 Test against testset
+
+pred.knn.2 <- predict(kfbest.two,newdata=df.test)
 
