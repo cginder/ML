@@ -200,10 +200,18 @@ best.tree.two <- prune(cars.tree.two,cp=bestcp)
 rpart.plot(best.tree.two)
 
 #### Questions 2.6.3 Test against test set
-pred.knn.two <- kknn(price ~ mileage + year,ddf,df.test,k=imin.two,kernel = "rectangular")
+####****###***###***
+###***##*#*#*#*#
+#*#*#*#*#
+df.test.scale <- as.data.frame(apply(as.data.frame(cbind(df.test$mileage,df.test$year)),2,mmsc))
+colnames(df.test.scale)[1:2] <- c("mileage","year")
+pred.knn.two <- kknn(price ~ mileage + year,ddf,df.test.scale,k=imin.two,kernel = "rectangular")
 
 OOS.MSE.KNN.two <- mean((pred.knn.two$fitted.values - df.test$price)^2)
 
+####****###***###***
+###***##*#*#*#*#
+#*#*#*#*#
 
 pred.tree.two <- predict(best.tree.two,newdata = df.test)
 
