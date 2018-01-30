@@ -1,0 +1,198 @@
+# Question 1
+
+# Download the files
+
+download.file(
+  'https://raw.githubusercontent.com/ChicagoBoothML/ML2017/master/hw02/Bike_train.csv',
+  'Bike_train.csv')
+download.file(
+  'https://raw.githubusercontent.com/ChicagoBoothML/ML2017/master/hw02/Bike_test.csv',
+  'Bike_test.csv')
+
+btrain_df = read.csv("Bike_train.csv") # name training data frame
+btest_df = read.csv("Bike_test.csv") # name testing data frame
+
+attach(btrain_df) # attach labels to training set
+names(btrain_df) # check varaible names
+
+ntest = nrow(btest_df) # Number of test observations
+
+# Summarize the data
+
+summary(btrain_df) # summary statistics
+lapply(btrain_df[1:9], factor) # classify certain variables as factors
+
+cor_vector = cor(btrain_df[,1:13], count) # check the correlation among different variables on Count
+colnames(cor_vector) = c("Count Correlation")
+print(cor_vector)
+cor2_vector = cor(btrain_df, btrain_df) # correlation matrix among all variables
+print(cor_vector)
+
+hist(count) # check the distribution of count, we see that it's not normally distributed, skewed right
+hist(log(count + 1)) #examine log transformation
+
+# examine boxplots for Month, Season, Hour and Temperature on the Count
+
+par(mfrow=c(2,2)) 
+boxplot(count~month, data=btrain_df)
+boxplot(count~season, data=btrain_df)
+boxplot(count~hour, data=btrain_df)
+boxplot(count~temp, data=btrain_df)
+dev.off()
+
+# Check for errors in the data and clean up data matrix
+
+# examine histogram of atmep, temp and temp - atemp
+par(mfrow=c(1,3)) 
+hist(atemp)
+hist(temp)
+hist(temp - atemp)
+dev.off()
+
+mean(temp - atemp)
+min(temp - atemp)
+max(temp - atemp)
+
+which.max(temp - atemp)
+btrain_df[which.max(temp - atemp),1]
+# we see a 23.14 degree difference in temp and atemp in day 595, which seems odd
+# Day 595 also has the same atemp recorded for the entire day
+
+# compare to the test set
+max(btest_df$temp - btest_df$atemp)
+min(btest_df$temp - btest_df$atemp)
+# largest delta is 11 degrees
+
+# remove day 595 from training data, error in atemp data
+btrain_df = subset(btrain_df, daylabel!=595)
+attach(btrain_df)
+
+# Check humidity data
+
+hist(humidity)
+which.min(humidity)
+humidity[which.min(humidity)]
+mean(humidity)
+which(humidity==0)
+btrain_df[which(humidity==0),1]
+# day 69 has humidity recorded at 0
+
+min(btest_df$humidity)
+# min humidity in test set is 0
+
+# Remove day 69 from training data, apparent error in humidity data
+btrain_df = subset(btrain_df, daylabel!=69)
+attach(btrain_df)
+min(humidity)
+
+# Split training set into training and test set
+
+ntrain = nrow(btrain_df) #size of training vector
+set.seed(1)
+train = sample.int(ntrain, floor(0.8*ntrain))
+btrain= btrain_df[train,]
+btest= btrain_df[-train,]
+attach(btrain)
+
+# Fit regression analysis
+
+# Forward Stepwise Regression
+null = lm(log(count + 1) ~ 1, data=btrain)
+full = lm(log(count + 1) ~ . + .^2, data = btrain)
+reg.BIC <- step(null, scope=formula(full), direction="forward", k=log(ntrain)) # BIC criterion
+summary(reg.BIC)
+
+reg.AIC <- step(null, scope=formula(full), direction="forward") # AIC criterion
+summary(reg.AIC)
+
+# LASSO
+set.seed(1)
+library(glmnet)
+names(btrain)
+X <- model.matrix(~(daylabel + year + month + day + hour + season + holiday + workingday + weather + temp + atemp + humidity + windspeed)*(daylabel + year + month + day + hour + season + holiday + workingday + weather + temp + atemp + humidity + windspeed), btrain) 
+X <- X[,-1]
+dim(X)
+
+cvfit <- cv.glmnet(x = X, y = log(count + 1), family="gaussian", alpha=1, standardize=FALSE)
+betas <- coef(cvfit, s = "lambda.1se")
+model <- which(betas[2:length(betas)]!=0)
+colnames(X)[model]
+reg.lasso1 <- lm(log(count +1) ~ X[,model])
+summary(reg.lasso1)
+
+betas2 <- coef(cvfit, s = "lambda.min")
+model2 <- which(betas2[2:length(betas2)]!=0)
+colnames(X)[model2]
+reg.lasso2 <- lm(log(count +1) ~ X[,model2])
+summary(reg.lasso2)
+
+# Compare Regression Models
+
+# AIC Criterion Measure
+model.names <- c("reg.AIC", "reg.BIC", "reg.lasso1", "reg.lasso2")
+AIC <- c(extractAIC(reg.AIC)[2],
+         extractAIC(reg.BIC)[2],
+         extractAIC(reg.lasso1)[2],
+         extractAIC(reg.lasso2)[2])
+AIC_values <- round(AIC, 0)
+
+AIC_Table <- data.frame(model.names, AIC)
+AIC_Table
+
+eAIC <- exp(-0.5*(AIC-min(AIC)))
+eAIC
+probs <- eAIC/sum(eAIC)
+AIC_Prob <- round(probs, 4)
+print(AIC_Prob)
+# Using AIC criterion, AIC is the best model
+
+# BIC Criterion Measure
+BIC <- c(extractAIC(reg.AIC, k=log(ntrain))[2],
+         extractAIC(reg.BIC, k=log(ntrain))[2],
+         extractAIC(reg.lasso1, k=log(ntrain))[2],
+         extractAIC(reg.lasso2, k=log(ntrain))[2])
+BIC_values <- round(BIC,0)
+
+BIC_Table <- data.frame(model.names, BIC)
+BIC_Table
+
+eBIC <- exp(-0.5*(BIC-min(BIC)))
+eBIC
+BIC.Prob <- round(eBIC/sum(eBIC),4)
+print(BIC.Prob)
+# Using BIC criterion, BIC is the best model
+
+# AIC And BIC Comparison of all models
+model.ranking <- data.frame(model.names, AIC_values, BIC_values, AIC_Prob, BIC.Prob)
+model.ranking
+
+# Check distribution of training set residuals
+par(mfrow=c(2,2))
+hist(reg.BIC$residuals)
+hist(reg.AIC$residuals)
+hist(reg.lasso1$residuals)
+hist(reg.lasso2$residuals)
+
+# Calculate RMSE's of Regression Models
+
+BIC.fitted = predict(reg.BIC, newdata=btest) #fitted values, in form y = log(count+1)
+BIC.fitted = exp(BIC.fitted) - 1 #transform to Y = Count
+
+AIC.fitted = predict(reg.AIC, newdata=btest) #fitted values, in form y = log(count+1)
+AIC.fitted = exp(AIC.fitted) - 1 #transform to Y = Count
+
+MSE.BIC = sum((btest$count - BIC.fitted)^2) / nrow(btest)
+RMSE.BIC = sqrt(MSE.BIC)
+
+MSE.AIC = sum((btest$count - AIC.fitted)^2) / nrow(btest)
+RMSE.AIC = sqrt(MSE.AIC)
+
+reg.names <- c("reg.AIC", "reg.BIC")
+RMSE = c(RMSE.AIC, RMSE.BIC)
+RMSE.table = data.frame(reg.names,RMSE)
+print(RMSE.table)
+# Not very good at predicting, large RMSE
+
+# KNN Models
+
+
