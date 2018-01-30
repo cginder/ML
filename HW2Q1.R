@@ -40,6 +40,10 @@ boxplot(count~hour, data=btrain_df)
 boxplot(count~temp, data=btrain_df)
 dev.off()
 
+boxplot(count~year, data=btrain_df)
+boxplot(count~humidity, data=btrain_df)
+boxplot(count~weather, data=btrain_df)
+
 # Check for errors in the data and clean up data matrix
 
 # examine histogram of atmep, temp and temp - atemp
@@ -193,6 +197,32 @@ RMSE.table = data.frame(reg.names,RMSE)
 print(RMSE.table)
 # Not very good at predicting, large RMSE
 
-# KNN Models
+plot(btest$count, AIC.fitted, cex=0.1)
+abline(0,1)
+dev.off()
 
+# KNN Models
+library(kknn)
+download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/docv.R", "docv.R")
+source("docv.R") #this has docvknn used below
+
+# Decide what variables we want to include (which ones most impactful in regression)
+# hour, atemp, humidity, daylabel, month
+kx = cbind(hour, atemp, humidity, daylabel, month, season)
+head(kx)
+mmsc=function(kx) {return((kx-min(kx))/(max(kx)-min(kx)))}
+xs = apply(kx,2,mmsc) #apply scaling function to each column of x
+head(xs)
+
+set.seed(1)
+kv = 10:500 #these are the k values (k as in kNN) we will try
+cvtemp = docvknn(xs,log(count+1),kv,nfold=10)
+cvtemp = sqrt(cvtemp/nrow(btrain)) #docvknn returns sum of squares
+plot(log(1/kv),cvtemp,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+imin = which.min(cvtemp)
+cat("best k is ",kv[imin],"\n")
+
+#Refit best k on entire training set
+
+# test best model against the test set and measure the RMSE
 
