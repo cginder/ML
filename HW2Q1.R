@@ -25,7 +25,6 @@ ntest = nrow(btest_df) # Number of test observations
 # Summarize the data
 
 summary(btrain_df) # summary statistics
-lapply(btrain_df[1:9], factor) # classify certain variables as factors
 
 cor_vector = cor(btrain_df[,1:13], count) # check the correlation among different variables on Count
 colnames(cor_vector) = c("Count Correlation")
