@@ -1,3 +1,9 @@
+# Ideas to try; 
+# Run CV to optimize number of boosting trees and depth of trees
+# Try different variable matrices for decision trees
+# Create a big tree and prune - then see what variables were left
+# think about adding in time series element with new variable, or seasonality with sin/cosine
+
 # Question 1
 
 # Download the files
@@ -208,7 +214,7 @@ source("docv.R") #this has docvknn used below
 
 # Decide what variables we want to include (which ones most impactful in regression)
 # hour, atemp, humidity, daylabel, month
-kx = cbind(hour, atemp, humidity, daylabel, month, season)
+kx = cbind(hour, atemp, humidity, daylabel)
 head(kx)
 mmsc=function(kx) {return((kx-min(kx))/(max(kx)-min(kx)))}
 xs = apply(kx,2,mmsc) #apply scaling function to each column of x
@@ -226,3 +232,78 @@ cat("best k is ",kv[imin],"\n")
 
 # test best model against the test set and measure the RMSE
 
+# Decision Trees
+
+# Start with 1 big tree and prune
+
+
+# Random Forests
+#List the packages we need, install if missing, then load all of them
+PackageList =c('MASS','gbm','tree','randomForest','rpart') 
+NewPackages=PackageList[!(PackageList %in% 
+                            installed.packages()[,"Package"])]
+if(length(NewPackages)) install.packages(NewPackages)
+
+lapply(PackageList,require,character.only=TRUE)#array function
+
+set.seed(1) #Always set the seed for reproducibility
+
+# Utility Function to Measure Performance
+#Start stop watch timer
+tic <- function(gcFirst = TRUE, type=c("elapsed", "user.self", "sys.self")){
+  type <- match.arg(type)
+  assign(".type", type, envir=baseenv())
+  if(gcFirst) gc(FALSE)
+  tic <- proc.time()[type]         
+  assign(".tic", tic, envir=baseenv())
+  invisible(tic)
+}
+
+#Read elapsed time from stopwatch
+toc <- function(){
+  type <- get(".type", envir=baseenv())
+  toc <- proc.time()[type]
+  tic <- get(".tic", envir=baseenv())
+  print(toc - tic)
+  invisible(toc)
+}
+
+# Random Forest Inputs
+p = length(btrain)-1
+tic()
+frf = randomForest(log(count + 1)~.,              #regression model
+                   data=btrain, #data set
+                   mtry=sqrt(p),     #number of variables to sample
+                   ntree=500,  #number of trees to grow
+                   nodesize=10,#minimum node size on trees (optional)
+                   maxnodes=10,#maximum number of terminal nodes (optional)
+                   importance=TRUE#calculate variable importance measure (optional)
+)
+toc()
+
+# Predictions and RMSE
+rf.predict = predict(frf,newdata=btest)
+rf.predict = exp(rf.predict)-1
+MSE.rf = sum((btest$count - rf.predict)^2) / nrow(btest)
+RMSE.rf = sqrt(MSE.rf)
+print(RMSE.rf)
+
+varImpPlot(frf) #check variable importance
+
+# Boosting
+
+# Input arguments
+fboost=gbm(log(count + 1)~.,              #regression model
+           data=btrain, #data set
+           distribution="gaussian",# boost the squared error, "tdist", 'laplace'
+           n.trees=500,          #Total number of trees/iterations
+           interaction.depth = 1, #1 means additive, 2 means 2-way interaction, etc
+           shrinkage=0.02        #Shrinkage parameter, weak predictor
+)
+
+# Predictions and RMSE
+boost.predict = predict(fboost,newdata=btest, n.trees=500)
+boost.predict = exp(boost.predict)-1
+MSE.boost = sum((btest$count - boost.predict)^2) / nrow(btest)
+RMSE.boost = sqrt(MSE.boost)
+print(RMSE.boost)
