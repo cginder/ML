@@ -1,7 +1,6 @@
 # Ideas to try; 
 # Run CV to optimize number of boosting trees and depth of trees
 # Try different variable matrices for decision trees
-# Create a big tree and prune - then see what variables were left
 # think about adding in time series element with new variable, or seasonality with sin/cosine
 
 # Question 1
@@ -37,18 +36,30 @@ print(cor_vector)
 hist(count) # check the distribution of count, we see that it's not normally distributed, skewed right
 hist(log(count + 1)) #examine log transformation
 
-# examine boxplots for Month, Season, Hour and Temperature on the Count
 
-par(mfrow=c(2,2)) 
+# examine boxplots to understand relationships
+
+boxplot(count~year, data=btrain_df) #2012 higher average rental and larger variance
+boxplot(count~month, data=btrain_df) #Summer months seem to have higher rentals
+boxplot(count~day, data=btrain_df) # day of month does not seem to capture much
+boxplot(count~hour, data=btrain_df) # Minimal rentals from 0-6 and after 22
+boxplot(count~season, data=btrain_df) # Yes, but better captured by month
+boxplot(count~holiday, data=btrain_df) #Nothing meaningful
+boxplot(count~workingday, data=btrain_df) #Nothing meaningful
+boxplot(count~weather, data=btrain_df) # some impact, may be errors with 1.5 and 2.5; nicer weather = more rentals
+boxplot(count~temp, data=btrain_df) #warmer weather = more rentals
+boxplot(count~atemp, data=btrain_df) #similar relationship to temp
+boxplot(count~humidity, data=btrain_df) #lower humidity = more rentals
+boxplot(count~windspeed, data=btrain_df) #minimal relationship
+boxplot(count~daylabel, data=btrain_df) #increasing over time
+
+par(mfrow=c(2,2))
+boxplot(count~hour, data=btrain_df) 
 boxplot(count~month, data=btrain_df)
-boxplot(count~season, data=btrain_df)
-boxplot(count~hour, data=btrain_df)
-boxplot(count~temp, data=btrain_df)
-dev.off()
-
-boxplot(count~year, data=btrain_df)
+boxplot(count~atemp, data=btrain_df)
 boxplot(count~humidity, data=btrain_df)
-boxplot(count~weather, data=btrain_df)
+
+# Strong signal variables: Humidity, Temp, Hour, Month, Weather
 
 # Check for errors in the data and clean up data matrix
 
@@ -104,16 +115,54 @@ btrain= btrain_df[train,]
 btest= btrain_df[-train,]
 attach(btrain)
 
+
+
+
+
 # Fit regression analysis
+
+# Simple Linear Regression
+
+reg1 = lm(log(count+1) ~ atemp + humidity + month + hour + weather, data=btrain)
+summary(reg1)
+# Not Bad, 48% R-Squared
+
+# Diagnostics
+plot(reg1$fitted.values, reg1$residuals, cex=0.1)
+abline(a=0, b=0)
+mean(reg1$residuals)
+cor(log(count+1), reg1$residuals) # a lot of explanatory power left in residuals
+
+par(mfrow=c(1,2))
+hist(rstudent(reg1))
+qqnorm(rstudent(reg1), col=4)
+abline(a=0, b=1)
+
+summary(exp(reg1$fitted.values)-1)
+summary(count)
+
+# Get RMSE on Test Set
+reg1.fitted = predict(reg1, newdata=btest) #fitted values, in form y = log(count+1)
+reg1.fitted = exp(reg1.fitted) - 1 #transform to Y = Count
+
+MSE.reg1 = sum((btest$count - reg1.fitted)^2) / nrow(btest)
+RMSE.reg1 = sqrt(MSE.reg1)
+print(RMSE.reg1)
+
+
 
 # Forward Stepwise Regression
 null = lm(log(count + 1) ~ 1, data=btrain)
 full = lm(log(count + 1) ~ . + .^2, data = btrain)
 reg.BIC <- step(null, scope=formula(full), direction="forward", k=log(ntrain)) # BIC criterion
 summary(reg.BIC)
+# x Variables = Hour, Atemp, Humidity, Daylabel, Month, WorkingDay, Atemp*DayLabel, 
+# Humidity*Month, Hour*Workdingday, atemp*workingday, humidity*workingday
 
 reg.AIC <- step(null, scope=formula(full), direction="forward") # AIC criterion
 summary(reg.AIC)
+
+
 
 # LASSO
 set.seed(1)
@@ -178,10 +227,10 @@ model.ranking
 
 # Check distribution of training set residuals
 par(mfrow=c(2,2))
-hist(reg.BIC$residuals)
-hist(reg.AIC$residuals)
-hist(reg.lasso1$residuals)
-hist(reg.lasso2$residuals)
+hist(rstudent(reg.BIC))
+hist(rstudent(reg.AIC))
+hist(rstudent(reg.lasso1))
+hist(rstudent(reg.lasso2))
 
 # Calculate RMSE's of Regression Models
 
@@ -203,9 +252,8 @@ RMSE.table = data.frame(reg.names,RMSE)
 print(RMSE.table)
 # Not very good at predicting, large RMSE
 
-plot(btest$count, AIC.fitted, cex=0.1)
-abline(0,1)
-dev.off()
+
+
 
 # KNN Models
 library(kknn)
@@ -213,28 +261,55 @@ download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/doc
 source("docv.R") #this has docvknn used below
 
 # Decide what variables we want to include (which ones most impactful in regression)
-# hour, atemp, humidity, daylabel, month
-kx = cbind(hour, atemp, humidity, daylabel)
+kx = cbind(daylabel, hour, month, weather, atemp, humidity)
 head(kx)
 mmsc=function(kx) {return((kx-min(kx))/(max(kx)-min(kx)))}
 xs = apply(kx,2,mmsc) #apply scaling function to each column of x
 head(xs)
 
 set.seed(1)
-kv = 10:500 #these are the k values (k as in kNN) we will try
-cvtemp = docvknn(xs,log(count+1),kv,nfold=10)
+kv = seq(from = 2, to = 750, by = 20) #these are the k values (k as in kNN) we will try
+nk = length(kv)
+
+cvtemp = docvknn(xs,log(count+1),kv,nfold=5)
 cvtemp = sqrt(cvtemp/nrow(btrain)) #docvknn returns sum of squares
 plot(log(1/kv),cvtemp,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
 imin = which.min(cvtemp)
-cat("best k is ",kv[imin],"\n")
+kv[imin]
 
 #Refit best k on entire training set
+ddf = data.frame(log(count+1),xs)
+kfbest = kknn(log(count+1)~.,ddf,ddf,k=kv[imin], kernel="rectangular")
 
 # test best model against the test set and measure the RMSE
 
+
 # Decision Trees
+library(rpart)
+install.packages("rpart.plot")
+library(rpart.plot)
 
 # Start with 1 big tree and prune
+temp = rpart(log(count+1)~., data=ddf, control=rpart.control(minsplit=5,  
+                                                            cp=0.001,
+                                                            xval=5)   
+)
+
+rpart.plot(temp)
+nbig <- length(unique(temp$where))
+cat("size of big tree ",nbig,"\n")
+
+plotcp(temp)
+(cptable = printcp(temp))
+(bestcp = cptable[which.min(cptable[,"xerror"]),"CP"])  #find the optimal cp (smallest value of xerror)
+
+# prune tree
+best.tree <- prune(temp,cp=bestcp)
+rpart.plot(best.tree) #plot the beset tree
+nbig <- length(unique(best.tree$where))
+cat("size of best tree ",nbig,"\n")
+
+# Calc MSE and RMSE of Best.Tree against Test Set
 
 
 # Random Forests
@@ -267,6 +342,8 @@ toc <- function(){
   print(toc - tic)
   invisible(toc)
 }
+
+
 
 # Random Forest Inputs
 p = length(btrain)-1
