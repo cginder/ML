@@ -241,9 +241,6 @@ set.seed(99)
 idv = c(2,4)
 ntv = c(1000,5000)
 shv = c(.1,.01)
-setboost = expand.grid(idv,ntv,shv)
-colnames(setboost) = c("tdepth","ntree","shrink")
-phatL$boost = matrix(0.0,nrow(df.valid),nrow(setboost))
 
 ## set y values to numeric
 df.train.boost = df.train; df.train.boost$sentiment = as.numeric(df.train.boost$sentiment)

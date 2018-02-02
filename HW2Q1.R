@@ -110,8 +110,15 @@ btrain_df = subset(btrain_df, daylabel!=69)
 attach(btrain_df)
 min(humidity)
 
-# Split training set into training and test set
+# remove days with "season" of 1.5 and 2.5
+btrain_df = subset(btrain_df, weather!= 1.5)
+btrain_df = subset(btrain_df,weather!= 2.5)
 
+# convert year, month, day, hour, season, holiday, workingday, weather to factors
+btrain_df[,c(2:9)] <- lapply(btrain_df[,c(2:9)],factor)
+
+
+# Split training set into training and test set
 ntrain = nrow(btrain_df) #size of training vector
 set.seed(1)
 train = sample.int(ntrain, floor(0.8*ntrain))
@@ -252,7 +259,15 @@ RMSE.table = data.frame(reg.names,RMSE)
 print(RMSE.table)
 # Not very good at predicting, large RMSE
 
+lasso.test.X <- model.matrix(~(daylabel + year + month + day + hour + season + holiday + workingday + weather + temp + atemp + humidity + windspeed)*(daylabel + year + month + day + hour + season + holiday + workingday + weather + temp + atemp + humidity + windspeed), btest) 
+lasso.test.X <- lasso.test.X[,-1]
+lasso.test.X <- as.data.frame(lasso.test.X[,model])
+X <- lasso.test.X
 
+Lasso.Pred <- predict(reg.lasso1,newdata = as.data.frame(X[,model]))
+Lasso.Pred <- exp((Lasso.Pred))-1
+
+Lasso.RMSE <- sqrt(mean((Lasso.Pred-btest$count)^2))
 
 
 # KNN Models
@@ -261,7 +276,7 @@ download.file("https://raw.githubusercontent.com/ChicagoBoothML/HelpR/master/doc
 source("docv.R") #this has docvknn used below
 
 # Decide what variables we want to include (which ones most impactful in regression)
-kx = cbind(daylabel, hour, month, weather, atemp, humidity)
+kx = cbind(hour, atemp, humidity)
 head(kx)
 mmsc=function(kx) {return((kx-min(kx))/(max(kx)-min(kx)))}
 xs = apply(kx,2,mmsc) #apply scaling function to each column of x
@@ -273,7 +288,7 @@ nk = length(kv)
 
 cvtemp = docvknn(xs,log(count+1),kv,nfold=5)
 cvtemp = sqrt(cvtemp/nrow(btrain)) #docvknn returns sum of squares
-plot(log(1/kv),cvtemp,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "MSE")
+plot(log(1/kv),cvtemp,type = "l",col="red",lwd = 2,cex.lab = 1.0,xlab = "log(1/k)",ylab = "RMSE")
 imin = which.min(cvtemp)
 kv[imin]
 
@@ -282,17 +297,28 @@ ddf = data.frame(log(count+1),xs)
 kfbest = kknn(log(count+1)~.,ddf,ddf,k=kv[imin], kernel="rectangular")
 
 # test best model against the test set and measure the RMSE
+kx.test = cbind(btest$hour, btest$atemp, btest$humidity)
+xs.test = apply(kx.test,2,mmsc) #apply scaling function to each column of x
+colnames(ddf)[1] <- "trans.count"
+head(xs.test)
+colnames(xs.test)[1:3] <- c("hour","atemp","humidity")
+knnPred = kknn(trans.count~.,ddf,as.data.frame(xs.test),k=kv[imin], kernel="rectangular")
+
+knn.RMSE <- sqrt(mean(((exp(knnPred$fitted.values)-1)-btest$count)^2))
 
 
 # Decision Trees
 library(rpart)
-install.packages("rpart.plot")
+#install.packages("rpart.plot")
 library(rpart.plot)
 
 # Start with 1 big tree and prune
-temp = rpart(log(count+1)~., data=ddf, control=rpart.control(minsplit=5,  
-                                                            cp=0.001,
-                                                            xval=5)   
+tree.train <- subset(btrain,select = c("month","hour","holiday","workingday","weather",
+                              "temp","atemp","humidity","windspeed","count"))
+
+temp = rpart((log(count)+1)~., data=tree.train, control=rpart.control(minsplit=5,  
+                                                            cp=0.000001,
+                                                            xval=0)   
 )
 
 rpart.plot(temp)
@@ -310,6 +336,10 @@ nbig <- length(unique(best.tree$where))
 cat("size of best tree ",nbig,"\n")
 
 # Calc MSE and RMSE of Best.Tree against Test Set
+Tree.Pred = predict(best.tree,newdata = btest)
+phatL$tree = matrix(phat[,2],ncol=1) 
+
+
 
 
 # Random Forests
@@ -350,10 +380,10 @@ p = length(btrain)-1
 tic()
 frf = randomForest(log(count + 1)~.,              #regression model
                    data=btrain, #data set
-                   mtry=sqrt(p),     #number of variables to sample
-                   ntree=500,  #number of trees to grow
+                   mtry=p,     #number of variables to sample
+                   ntree=1000,  #number of trees to grow
                    nodesize=10,#minimum node size on trees (optional)
-                   maxnodes=10,#maximum number of terminal nodes (optional)
+                   #maxnodes=20,#maximum number of terminal nodes (optional)
                    importance=TRUE#calculate variable importance measure (optional)
 )
 toc()
@@ -370,16 +400,56 @@ varImpPlot(frf) #check variable importance
 # Boosting
 
 # Input arguments
+set.seed(1)
+idv = c(2,4,8)
+ntv = c(1000,5000,10000)
+shv = c(.1,.05,.01)
+setboost = expand.grid(idv,ntv,shv)
+colnames(setboost) = c("tdepth","ntree","shrink")
+q1 <- list()
+q1$boost = matrix(0.0,nrow(btest),nrow(setboost))
+
+q1$lasso = matrix(phat,ncol=1) 
+
+
+for(i in 1:nrow(setboost)) {
+  ##fit and predict
+  fboost = gbm(log(count + 1)~.,              #regression model
+               data=btrain, #data set
+               distribution="gaussian",# boost the squared error, "tdist", 'laplace'
+               n.trees=setboost[i,2],
+               interaction.depth=setboost[i,1],
+               shrinkage=setboost[i,3])
+  
+  phat = predict(fboost,
+                 newdata=btest,
+                 n.trees=setboost[i,2])
+  
+  q1$boost[,i] = phat
+  print(i)
+}
+
 fboost=gbm(log(count + 1)~.,              #regression model
            data=btrain, #data set
            distribution="gaussian",# boost the squared error, "tdist", 'laplace'
-           n.trees=500,          #Total number of trees/iterations
-           interaction.depth = 1, #1 means additive, 2 means 2-way interaction, etc
-           shrinkage=0.02        #Shrinkage parameter, weak predictor
+           n.trees=5000,          #Total number of trees/iterations
+           interaction.depth = 4, #1 means additive, 2 means 2-way interaction, etc
+           shrinkage=0.1        #Shrinkage parameter, weak predictor
 )
 
 # Predictions and RMSE
-boost.predict = predict(fboost,newdata=btest, n.trees=500)
+nrun = nrow(setboost)
+for(j in 1:nrun) {
+  print(setboost[j,])
+  boost.predict = exp(q1$boost[,j])-1
+  boost.RMSE = sqrt(mean((btest$count - boost.predict)^2))
+  print(boost.RMSE)
+}
+
+
+
+
+boost.predict = predict(fboost,newdata=btest, n.trees=1000)
 boost.predict = exp(boost.predict)-1
 MSE.boost = sum((btest$count - boost.predict)^2) / nrow(btest)
 RMSE.boost = sqrt(MSE.boost)
