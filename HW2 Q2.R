@@ -436,3 +436,203 @@ reviews.final.pred.class <- ifelse(reviews.final.pred.response > 0.5, 1,0)
 
 reviews.predictions <- cbind(reviews.final.pred.response,reviews.final.pred.class)
 write.csv(reviews.predictions,"HW2.2 Predictions.csv")
+
+
+#### Relative Weights
+rv.phatL = list() #store the test phat for the different methods here
+
+rv.df <- mtrain_df
+rv.df$count <- apply(rv.df[2:391],1,"sum")
+rv.df$differential <- exp(rv.df$length)- rv.df$count
+
+rv.df[,2:391] <- rv.df[,2:391]/rv.df$count
+
+# train/valid
+set.seed(99)
+nfold <- 5  # number of folds used in other CV models 
+nsamp <- nrow(rv.df)*((nfold-1)/nfold) # number of samples to grab per fold
+tr <- sample(1:nrow(rv.df),nsamp)
+rv.train = rv.df[tr,] #training data
+rv.valid = rv.df[-tr,] #validation data
+
+rv.train.x <- rv.train[,-392]
+rv.train.y <- as.data.frame(rv.train[,392])
+rv.valid.x <- rv.valid[,-392]
+rv.valid.y <- as.data.frame(rv.valid[,392])
+colnames(rv.train.y)[1] <- "sentiment"
+colnames(rv.valid.y)[1] <- "sentiment"
+
+#### Lasso
+set.seed(99)
+
+## generate lasso model (5-fold cross validation)
+rv.lasso <- cv.gamlr(x = rv.train.x, y = rv.train.y, lambda.min.ratio=1e-3,family="binomial")
+plot(rv.lasso)
+
+## look at which words are retained
+beta <- drop(coef(rv.lasso)) # AICc default selection
+
+o<-order(beta[-1],decreasing=TRUE) # order all coefficients, but the intercept
+beta[-1][o[1:20]] # pick top twenty
+
+o.neg <- order(beta[-1],decreasing=FALSE) # order all coefficients, but the intercept, worst words
+beta[-1][o.neg[1:20]] # pick worst twenty
+
+## calculate predictions
+phat = predict(rv.lasso, newdata = rv.valid.x, type="response",select = "min")
+rv.phatL$lasso = matrix(phat,ncol=1) 
+
+#### RV.Boosting
+set.seed(99)
+##settings for boosting
+idv = c(2,4)
+ntv = c(1000,5000,10000)
+shv = c(.1,.01)
+
+## set y values to numeric
+rv.train.boost = rv.train; rv.train.boost$sentiment = as.numeric(rv.train.boost$sentiment)
+rv.valid.boost = rv.valid; rv.valid.boost$sentiment = as.numeric(rv.valid.boost$sentiment)
+
+## fit model
+for(i in 1:nrow(setboost)) {
+  ##fit and predict
+  fboost = gbm(sentiment~., data=rv.train.boost, distribution="bernoulli",
+               n.trees=setboost[i,2],
+               interaction.depth=setboost[i,1],
+               shrinkage=setboost[i,3])
+  
+  phat = predict(fboost,
+                 newdata=rv.valid.boost,
+                 n.trees=setboost[i,2],
+                 type="response")
+  
+  phatL$boost[,i] = phat
+  print(i)
+}
+
+fboost = gbm(sentiment~., data=rv.train.boost, distribution="bernoulli",
+             n.trees=5000,
+             interaction.depth=4,
+             shrinkage=.1)
+
+phat = predict(fboost,
+               newdata=rv.valid.boost,
+               n.trees=5000,
+               type="response")
+
+rv.phatL$final.boost <- matrix(phat,ncol=1) 
+
+
+#### Method PCA with Relative Weights
+set.seed(99)
+rv.pcawords <- prcomp(rv.train.x[,-1], scale=TRUE) # drop length -- might need to go back and scale = true
+plot(rv.pcawords, main="")
+
+mtext(side=1, "Review Words PCs",  line=1, font=2)
+
+# first few pcs
+round(rv.pcawords$rotation[,1:3],1) 
+
+## calculate pc directions
+rv.zreview <- as.data.frame(predict(rv.pcawords))
+
+## merge in length again
+rv.lassoPCR.train <- as.data.frame(cbind(rv.train.x$length,rv.zreview))
+colnames(rv.lassoPCR.train)[1] <- "length"
+
+rv.lassoPCR <- cv.gamlr(x = rv.lassoPCR.train, y = rv.train.y, lambda.min.ratio=1e-3,family="binomial")
+plot(rv.lassoPCR)
+
+## convert to factors
+rv.valid.zreview <- as.data.frame(predict(rv.pcawords,newdata = rv.valid.x[,-1]))
+rv.PCA.valid.x <- cbind(rv.valid$length,rv.valid.zreview)
+
+phat = predict(rv.lassoPCR, newdata = rv.PCA.valid.x, type="response")
+rv.phatL$lassoPCR = matrix(phat,ncol=1) 
+
+## PCR Logistic Regression
+rv.glm.PCR.df <- cbind(rv.zreview,rv.train.y)
+
+
+BIC.vec <- 0
+for(i in 1:50){
+  BIC.vec[i] <- BIC(glm(sentiment ~ ., data = rv.glm.PCR.df[,c(1:i,393)]))
+  
+}
+
+### minimum is 19
+rv.glm.PCA.valid.x <- cbind(rv.valid$length,valid)
+rv.glm.PCR <- glm(sentiment ~ . ,data = rv.glm.PCR.df[,c(1:19,393)], family = "binomial")
+
+phat = predict(rv.glm.PCR, newdata = rv.PCA.valid.x, type="response")
+
+rv.phatL$glm.PCR <- matrix(phat,ncol=1)
+
+
+
+
+
+## Confusion Matrix -- Lasso
+getConfusionMatrix(rv.valid.y$sentiment, rv.phatL[[1]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(rv.valid.y$sentiment, rv.phatL[[1]][,1], 0.5), '\n')
+
+## Confusion Matrix -- Boosting
+getConfusionMatrix(rv.valid.y$sentiment, rv.phatL[[2]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(rv.valid.y$sentiment, rv.phatL[[2]][,1], 0.5), '\n')
+
+## Confusion Matrix -- Lasso PCA
+getConfusionMatrix(rv.valid.y$sentiment, rv.phatL[[3]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(rv.valid.y$sentiment, rv.phatL[[3]][,1], 0.5), '\n')
+
+## Confusion Matrix -- PCA GLM
+getConfusionMatrix(rv.valid.y$sentiment, rv.phatL[[4]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(rv.valid.y$sentiment, rv.phatL[[4]][,1], 0.5), '\n')
+
+
+#### Fit RV.Lasso on All Data
+#### Final Model Predictions
+#### Attempt 2 - Cross Validated Lasso
+set.seed(99)
+
+rv.final.train <- rv.df
+rv.final.train.x <- rv.final.train[,-392]
+rv.final.train.y <- rv.final.train[,392]
+
+## Calculate relative weights in test data
+rv.test.df <- mtest_df
+rv.test.df$count <- apply(rv.test.df[2:391],1,"sum")
+rv.test.df$length <- log(rv.test.df$length)
+rv.test.df$differential <- exp(rv.test.df$length)- rv.test.df$count
+
+rv.test.df[,2:391] <- rv.test.df[,2:391]/rv.test.df$count
+
+
+## generate lasso model (5-fold cross validation)
+rv.lasso.final <- cv.gamlr(x = rv.final.train.x, y = rv.final.train.y, lambda.min.ratio=1e-3,family="binomial")
+plot(rv.lasso.final)
+
+## look at which words are retained
+beta.final <- drop(coef(rv.lasso.final)) # AICc default selection
+
+o.final<-order(beta.final[-1],decreasing=TRUE) # order all coefficients, but the intercept
+beta.final[-1][o.final[1:20]] # pick top twenty
+
+o.neg.final <- order(beta.final[-1],decreasing=FALSE) # order all coefficients, but the intercept, worst words
+beta.final[-1][o.neg.final[1:20]] # pick worst twenty
+
+## calculate predictions (IS)
+phat = predict(rv.lasso.final, newdata = rv.final.train.x, type="response",select = "min")
+getConfusionMatrix(rv.final.train.y, phat, 0.5)
+cat('Missclassification rate = ', lossMR(rv.final.train.y, phat, 0.5), '\n')
+
+## compare to predictions based on training model above
+phat = predict(rv.lasso.final, newdata = rv.final.train.x, type="response",select = "1se")
+getConfusionMatrix(rv.final.train.y, phat, 0.5)
+cat('Missclassification rate = ', lossMR(rv.final.train.y, phat, 0.5), '\n')
+
+## insample fit better with lasso retraining on all variables
+rv.reviews.final.pred.response <- predict(rv.lasso.final,newdata = rv.test.df,type="response",select = "min")
+rv.reviews.final.pred.class <- ifelse(rv.reviews.final.pred.response > 0.5, 1,0)
+
+rv.reviews.predictions <- cbind(rv.reviews.final.pred.response,rv.reviews.final.pred.class)
+write.csv(rv.reviews.predictions,"HW2.2 Predictions.csv")
