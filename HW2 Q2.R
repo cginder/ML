@@ -234,12 +234,31 @@ PCA.valid.x <- cbind(df.valid$length,valid.zreview)
 phat = predict(lassoPCR, newdata = PCA.valid.x, type="response")
 phatL$lassoPCR = matrix(phat,ncol=1) 
 
+## PCR Logistic Regression
+glm.PCR.df <- cbind(zreview,df.train.y)
+
+
+BIC.vec <- 0
+for(i in 1:50){
+BIC.vec[i] <- BIC(glm(sentiment ~ ., data = glm.PCR.df[,c(1:i,391)]))
+
+}
+
+### minimum is 8
+glm.PCA. valid.x <- cbind(df.valid$length,valid)
+glm.PCR <- glm(sentiment ~ . ,data = glm.PCR.df[,c(1:8,391)], family = "binomial")
+
+phat = predict(glm.PCR, newdata = PCA.valid.x, type="response")
+
+phatL$glm.PCR <- matrix(phat,ncol=1)
+
+
 
 #### Method 6 -- Boosting
 set.seed(99)
 ##settings for boosting
-idv = c(2,4)
-ntv = c(1000,5000)
+idv = c(2,4,8)
+ntv = c(1000,5000,10000)
 shv = c(.1,.01)
 
 ## set y values to numeric
@@ -260,6 +279,7 @@ for(i in 1:nrow(setboost)) {
                  type="response")
   
   phatL$boost[,i] = phat
+  print(i)
 }
 
 
@@ -317,6 +337,10 @@ for(j in 1:nrun) {
 getConfusionMatrix(df.valid.y$sentiment, phatL[[7]][,1], 0.5)
 cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[7]][,1], 0.5), '\n')
 
+
+## GLM PCR
+getConfusionMatrix(df.valid.y$sentiment, phatL[[8]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[8]][,1], 0.5), '\n')
 
 
 #### to test against presence vs actual count

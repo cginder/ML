@@ -398,6 +398,8 @@ print(RMSE.rf)
 varImpPlot(frf) #check variable importance
 
 # Boosting
+# get rid of day and day label from training data set because these are mutually exclusive from testing set
+btrain.boost <- btrain[,-c(1,4)]
 
 # Input arguments
 set.seed(1)
@@ -415,7 +417,7 @@ q1$lasso = matrix(phat,ncol=1)
 for(i in 1:nrow(setboost)) {
   ##fit and predict
   fboost = gbm(log(count + 1)~.,              #regression model
-               data=btrain, #data set
+               data=btrain.boost, #data set
                distribution="gaussian",# boost the squared error, "tdist", 'laplace'
                n.trees=setboost[i,2],
                interaction.depth=setboost[i,1],
@@ -430,7 +432,7 @@ for(i in 1:nrow(setboost)) {
 }
 
 fboost=gbm(log(count + 1)~.,              #regression model
-           data=btrain, #data set
+           data=btrain.boost, #data set
            distribution="gaussian",# boost the squared error, "tdist", 'laplace'
            n.trees=5000,          #Total number of trees/iterations
            interaction.depth = 4, #1 means additive, 2 means 2-way interaction, etc
@@ -447,10 +449,27 @@ for(j in 1:nrun) {
 }
 
 
+# Best Model is Tdepth 8, ntree 10000, shrink 0.01. Will refit entire model on all training data and predict for test
+btrain_df[,c(2:9)] <- lapply(btrain_df[,c(2:9)],factor)
+btrain.train.boost <- btrain_df[,-c(1,4)]
 
+fboost=gbm(log(count + 1)~.,              #regression model
+           data=btrain.train.boost, #data set
+           distribution="gaussian",# boost the squared error, "tdist", 'laplace'
+           n.trees=10000,          #Total number of trees/iterations
+           interaction.depth = 8, #1 means additive, 2 means 2-way interaction, etc
+           shrinkage=0.01        #Shrinkage parameter, weak predictor
+)
 
-boost.predict = predict(fboost,newdata=btest, n.trees=1000)
-boost.predict = exp(boost.predict)-1
-MSE.boost = sum((btest$count - boost.predict)^2) / nrow(btest)
-RMSE.boost = sqrt(MSE.boost)
-print(RMSE.boost)
+#### Predict on Test Set
+btest_df[,c(2:9)] <- lapply(btest_df[,c(2:9)],factor)
+btrain.test.boost <- btest_df[,-c(1,4)]
+
+Boost.Test.Pred <- predict(fboost,newdata = btrain.test.boost,n.trees = 10000)
+
+Boost.Test.Pred <- exp(Boost.Test.Pred)+1
+
+Boost.Test.Pred <- as.data.frame(Boost.Test.Pred)
+colnames(Boost.Test.Pred)[1] <- "count"
+
+write.csv(Boost.Test.Pred,"Boost.Test.Pred.csv")
