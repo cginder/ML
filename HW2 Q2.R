@@ -149,7 +149,7 @@ o.neg <- order(beta[-1],decreasing=FALSE) # order all coefficients, but the inte
 beta[-1][o.neg[1:20]] # pick worst twenty
 
 ## calculate predictions
-phat = predict(lasso, newdata = df.valid.x, type="response")
+phat = predict(lasso, newdata = df.valid.x, type="response",select = "min")
 phatL$lasso = matrix(phat,ncol=1) 
 
 #### Method 3 - CV Decision Trees
@@ -245,7 +245,7 @@ BIC.vec[i] <- BIC(glm(sentiment ~ ., data = glm.PCR.df[,c(1:i,391)]))
 }
 
 ### minimum is 8
-glm.PCA. valid.x <- cbind(df.valid$length,valid)
+glm.PCA.valid.x <- cbind(df.valid$length,valid)
 glm.PCR <- glm(sentiment ~ . ,data = glm.PCR.df[,c(1:8,391)], family = "binomial")
 
 phat = predict(glm.PCR, newdata = PCA.valid.x, type="response")
@@ -282,6 +282,17 @@ for(i in 1:nrow(setboost)) {
   print(i)
 }
 
+fboost = gbm(sentiment~., data=df.train.boost, distribution="bernoulli",
+             n.trees=10000,
+             interaction.depth=8,
+             shrinkage=.01)
+
+phat = predict(fboost,
+               newdata=df.valid.boost,
+               n.trees=10000,
+               type="response")
+
+phatL$final.boost <- matrix(phat,ncol=1) 
 
 
 #### Partial Least Squares
@@ -295,7 +306,35 @@ phat = predict(pls.model,
                n.trees=setboost[i,2],
                type="response")
 
-phatL$pls = phat
+phatL$pls = matrix(phat,ncol=1) 
+
+#### Lasso w/ 3 way interactions -- changed to actually 2 way interactions because not enough memory
+## generate lasso model (5-fold cross validation)
+lasso.x.cube <- model.matrix(sentiment~.^2, data=df.train)[,-1]
+
+
+lasso.cube <- cv.gamlr(x = lasso.x.cube, y = df.train.y, lambda.min.ratio=1e-3,family="binomial")
+plot(lasso.cube)
+
+## look at which words are retained
+beta.cube <- drop(coef(lasso.cube)) # AICc default selection
+
+o.cube<-order(beta.cube[-1],decreasing=TRUE) # order all coefficients, but the intercept
+beta.cube[-1][o.cube[1:20]] # pick top twenty
+
+o.neg.cube <- order(beta.cube[-1],decreasing=FALSE) # order all coefficients, but the intercept, worst words
+beta.cube[-1][o.neg.cube[1:20]] # pick worst twenty
+
+## calculate predictions
+df.valid.cube <- model.matrix(sentiment~.^2, data=df.valid)[,-1]
+
+phatL$lasso.cube = matrix(0.0,nrow(df.valid),2)
+phat = predict(lasso.cube, newdata = df.valid.cube, type="response",select="min")
+phatL$lasso.cube[,1] = phat 
+
+phat = predict(lasso.cube, newdata = df.valid.cube, type="response",select="1se")
+phatL$lasso.cube[,2] = phat 
+
 
 #### Evaluate Different Models
 ## Logistic Regression
@@ -303,12 +342,12 @@ getConfusionMatrix(df.valid.y$sentiment, phatL[[1]][,1], 0.5)
 cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[1]][,1], 0.5), '\n')
 
 ## Lasso (Unfactorized)
-getConfusionMatrix(df.valid.y$sentiment, phatL[[5]][,1], 0.5)
-cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[5]][,1], 0.5), '\n')
+getConfusionMatrix(df.valid.y$sentiment, phatL[[2]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[2]][,1], 0.5), '\n')
 
 ## Lasso (Factorized)
-getConfusionMatrix(df.valid.y$sentiment, phatL[[4]][,1], 0.5)
-cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[4]][,1], 0.5), '\n')
+getConfusionMatrix(df.valid.y$sentiment, phatL[[5]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[5]][,1], 0.5), '\n')
 
 ## Tree
 getConfusionMatrix(df.valid.y$sentiment, phatL[[3]][,1], 0.5)
@@ -342,6 +381,16 @@ cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[7]][,1], 0
 getConfusionMatrix(df.valid.y$sentiment, phatL[[8]][,1], 0.5)
 cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[8]][,1], 0.5), '\n')
 
+## Final Boost
+getConfusionMatrix(df.valid.y$sentiment, phatL[[9]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[9]][,1], 0.5), '\n')
+
+## Lasso Cube
+getConfusionMatrix(df.valid.y$sentiment, phatL[[8]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[8]][,1], 0.5), '\n')
+getConfusionMatrix(df.valid.y$sentiment, phatL[[8]][,2], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[8]][,2], 0.5), '\n')
+
 
 #### to test against presence vs actual count
 test <- mtrain_df[]
@@ -350,3 +399,36 @@ colnames(test)[c(1,392)] <- c("length","sentiment")
 
 ## repeated above procedure - ended up with worse predictions
 
+#### Final Model Predictions
+#### Method 2 - Cross Validated Lasso
+set.seed(99)
+
+mtrain_df.x <- mtrain_df[,-392]
+mtrain_df.y <- mtrain_df[,392]
+
+## generate lasso model (5-fold cross validation)
+lasso.final <- cv.gamlr(x = mtrain_df.x, y = mtrain_df.y, lambda.min.ratio=1e-3,family="binomial")
+plot(lasso.final)
+
+## look at which words are retained
+beta.final <- drop(coef(lasso.final)) # AICc default selection
+
+o.final<-order(beta.final[-1],decreasing=TRUE) # order all coefficients, but the intercept
+beta.final[-1][o.final[1:20]] # pick top twenty
+
+o.neg.final <- order(beta.final[-1],decreasing=FALSE) # order all coefficients, but the intercept, worst words
+beta.final[-1][o.neg.final[1:20]] # pick worst twenty
+
+## calculate predictions (IS)
+phat = predict(lasso.final, newdata = mtrain_df.x, type="response",select = "min")
+getConfusionMatrix(mtrain_df.y, phat, 0.5)
+cat('Missclassification rate = ', lossMR(mtrain_df.y, phat, 0.5), '\n')
+
+## compare to predictions based on training model above
+phat.2 = predict(lasso, newdata = mtrain_df.x, type="response",select = "min")
+getConfusionMatrix(mtrain_df.y, phat.2, 0.5)
+cat('Missclassification rate = ', lossMR(mtrain_df.y, phat.2, 0.5), '\n')
+
+## insample fit better with lasso retraining on all variables
+mtest_df$length <- log(mtest_df$length)
+reviews.final.pred <- predict(lasso.final,newdata = mtest_df,type="response",select = "min")

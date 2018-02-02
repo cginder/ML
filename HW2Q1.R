@@ -467,7 +467,7 @@ btrain.test.boost <- btest_df[,-c(1,4)]
 
 Boost.Test.Pred <- predict(fboost,newdata = btrain.test.boost,n.trees = 10000)
 
-Boost.Test.Pred <- exp(Boost.Test.Pred)+1
+Boost.Test.Pred <- exp(Boost.Test.Pred)-1
 
 Boost.Test.Pred <- as.data.frame(Boost.Test.Pred)
 colnames(Boost.Test.Pred)[1] <- "count"
