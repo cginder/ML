@@ -431,4 +431,8 @@ cat('Missclassification rate = ', lossMR(mtrain_df.y, phat.2, 0.5), '\n')
 
 ## insample fit better with lasso retraining on all variables
 mtest_df$length <- log(mtest_df$length)
-reviews.final.pred <- predict(lasso.final,newdata = mtest_df,type="response",select = "min")
+reviews.final.pred.response <- predict(lasso.final,newdata = mtest_df,type="response",select = "min")
+reviews.final.pred.class <- ifelse(reviews.final.pred.response > 0.5, 1,0)
+
+reviews.predictions <- cbind(reviews.final.pred.response,reviews.final.pred.class)
+write.csv(reviews.predictions,"HW2.2 Predictions.csv")
