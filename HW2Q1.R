@@ -1,10 +1,3 @@
-# Factor variables: year, month, day, hour, season, holiday, workingday, weather (delete 0.5 increment data), year, 
-
-# Ideas to try; 
-# Run CV to optimize number of boosting trees and depth of trees
-# Try different variable matrices for decision trees
-# think about adding in time series element with new variable, or seasonality with sin/cosine
-
 # Question 1
 
 # Download the files
@@ -132,7 +125,7 @@ attach(btrain)
 
 reg1 = lm(log(count+1) ~ atemp + humidity + month + hour + weather, data=btrain)
 summary(reg1)
-# Not Bad, 48% R-Squared
+# Not Bad, 81% R-Squared
 
 # Diagnostics
 plot(reg1$fitted.values, reg1$residuals, cex=0.1)
@@ -163,8 +156,6 @@ null = lm(log(count + 1) ~ 1, data=btrain)
 full = lm(log(count + 1) ~ . + .^2, data = btrain)
 reg.BIC <- step(null, scope=formula(full), direction="forward", k=log(ntrain)) # BIC criterion
 summary(reg.BIC)
-# x Variables = Hour, Atemp, Humidity, Daylabel, Month, WorkingDay, Atemp*DayLabel, 
-# Humidity*Month, Hour*Workdingday, atemp*workingday, humidity*workingday
 
 reg.AIC <- step(null, scope=formula(full), direction="forward") # AIC criterion
 summary(reg.AIC)
@@ -411,9 +402,6 @@ colnames(setboost) = c("tdepth","ntree","shrink")
 q1 <- list()
 q1$boost = matrix(0.0,nrow(btest),nrow(setboost))
 
-q1$lasso = matrix(phat,ncol=1) 
-
-
 for(i in 1:nrow(setboost)) {
   ##fit and predict
   fboost = gbm(log(count + 1)~.,              #regression model
@@ -471,5 +459,8 @@ Boost.Test.Pred <- exp(Boost.Test.Pred)-1
 
 Boost.Test.Pred <- as.data.frame(Boost.Test.Pred)
 colnames(Boost.Test.Pred)[1] <- "count"
+
+summary(Boost.Test.Pred)
+summary(btrain_df$count)
 
 write.csv(Boost.Test.Pred,"Boost.Test.Pred.csv")
