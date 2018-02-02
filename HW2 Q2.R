@@ -104,6 +104,11 @@ summary(mtrain_df)
 table(sentiment) # balanced data set
 hist(length)
 
+## standardize data
+hist(mtrain_df$length)
+mtrain_df$length <- log(mtrain_df$length)
+hist(mtrain_df$length)
+
 ## create training and validation data sets
 set.seed(99)
 nfold <- 5  # number of folds used in other CV models 
@@ -182,16 +187,23 @@ mtryv = c(p, sqrt(p))
 ntreev = c(500,1000) # number of tree vectors to try
 setrf = expand.grid(mtryv,ntreev)  # this contains all settings to try
 colnames(setrf)=c("mtry","ntree")
-phatL$rf = matrix(0.0,nrow(df.test),nrow(setrf))  # we will store results here
+phatL$rf = matrix(0.0,nrow(df.valid),nrow(setrf))  # we will store results here
+
+df.train.rf <- df.train
+df.train.rf$sentiment <- as.factor(df.train$sentiment)
+
+df.valid.rf <- df.valid
+df.valid.rf$sentiment <- as.factor(df.valid.rf$sentiment)
+
 
 ###fit rf
 for(i in 1:nrow(setrf)) {
   #fit and predict
-  frf = randomForest(sentiment~., data=df.train, 
+  frf = randomForest(sentiment~., data=df.train.rf, 
                      mtry=setrf[i,1],
                      ntree=setrf[i,2],
                      nodesize=10)
-  phat = predict(frf, newdata=df.test, type="prob")[,2]
+  phat = predict(frf, newdata=df.valid.rf, type="prob")[,2]
   phatL$rf[,i]=phat
 }
 
@@ -223,14 +235,59 @@ phat = predict(lassoPCR, newdata = PCA.valid.x, type="response")
 phatL$lassoPCR = matrix(phat,ncol=1) 
 
 
+#### Method 6 -- Boosting
+set.seed(99)
+##settings for boosting
+idv = c(2,4)
+ntv = c(1000,5000)
+shv = c(.1,.01)
+setboost = expand.grid(idv,ntv,shv)
+colnames(setboost) = c("tdepth","ntree","shrink")
+phatL$boost = matrix(0.0,nrow(df.valid),nrow(setboost))
+
+## set y values to numeric
+df.train.boost = df.train; df.train.boost$sentiment = as.numeric(df.train.boost$sentiment)
+df.valid.boost = df.valid; df.valid.boost$sentiment = as.numeric(df.valid.boost$sentiment)
+
+## fit model
+for(i in 1:nrow(setboost)) {
+  ##fit and predict
+  fboost = gbm(sentiment~., data=df.train.boost, distribution="bernoulli",
+               n.trees=setboost[i,2],
+               interaction.depth=setboost[i,1],
+               shrinkage=setboost[i,3])
+  
+  phat = predict(fboost,
+                 newdata=df.valid.boost,
+                 n.trees=setboost[i,2],
+                 type="response")
+  
+  phatL$boost[,i] = phat
+}
+
+
+
+#### Partial Least Squares
+install.packages("textir")
+library(textir)
+
+pls.model <- pls(x=df.train.x, y=as.numeric(df.train.y$sentiment), K=25)
+
+phat = predict(pls.model,
+               newdata=df.valid.x,
+               n.trees=setboost[i,2],
+               type="response")
+
+phatL$pls = phat
+
 #### Evaluate Different Models
 ## Logistic Regression
 getConfusionMatrix(df.valid.y$sentiment, phatL[[1]][,1], 0.5)
 cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[1]][,1], 0.5), '\n')
 
 ## Lasso (Unfactorized)
-getConfusionMatrix(df.valid.y$sentiment, phatL[[2]][,1], 0.5)
-cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[2]][,1], 0.5), '\n')
+getConfusionMatrix(df.valid.y$sentiment, phatL[[5]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[5]][,1], 0.5), '\n')
 
 ## Lasso (Factorized)
 getConfusionMatrix(df.valid.y$sentiment, phatL[[4]][,1], 0.5)
@@ -239,6 +296,31 @@ cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[4]][,1], 0
 ## Tree
 getConfusionMatrix(df.valid.y$sentiment, phatL[[3]][,1], 0.5)
 cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[3]][,1], 0.5), '\n')
+
+## Random Forest
+nrun = nrow(setrf)
+for(j in 1:nrun) {
+  print(setrf[j,])
+  print("Confusion Matrix:")
+  print(getConfusionMatrix(df.valid.boost$sentiment, phatL[[4]][,j], 0.5))
+  cat('Missclassification rate = ', lossMR(df.valid.boost$sentiment, phatL[[4]][,j], 0.5), '\n')
+}
+
+
+## Boosting
+nrun = nrow(setboost)
+for(j in 1:nrun) {
+  print(setboost[j,])
+  print("Confusion Matrix:")
+  print(getConfusionMatrix(df.valid.boost$sentiment, phatL[[6]][,j], 0.5))
+  cat('Missclassification rate = ', lossMR(df.valid.boost$sentiment, phatL[[6]][,j], 0.5), '\n')
+}
+
+## PLS
+getConfusionMatrix(df.valid.y$sentiment, phatL[[7]][,1], 0.5)
+cat('Missclassification rate = ', lossMR(df.valid.y$sentiment, phatL[[7]][,1], 0.5), '\n')
+
+
 
 #### to test against presence vs actual count
 test <- mtrain_df[]
