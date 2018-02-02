@@ -1,3 +1,5 @@
+# Factor variables: year, month, day, hour, season, holiday, workingday, weather (delete 0.5 increment data), year, 
+
 # Ideas to try; 
 # Run CV to optimize number of boosting trees and depth of trees
 # Try different variable matrices for decision trees
@@ -51,6 +53,9 @@ boxplot(count~atemp, data=btrain_df) #similar relationship to temp
 boxplot(count~humidity, data=btrain_df) #lower humidity = more rentals
 boxplot(count~windspeed, data=btrain_df) #minimal relationship
 boxplot(count~daylabel, data=btrain_df) #increasing over time
+dev.off()
+
+summary(count)
 
 par(mfrow=c(2,2))
 boxplot(count~hour, data=btrain_df) 
@@ -113,10 +118,6 @@ train = sample.int(ntrain, floor(0.8*ntrain))
 btrain= btrain_df[train,]
 btest= btrain_df[-train,]
 attach(btrain)
-
-
-
-
 
 # Fit regression analysis
 
