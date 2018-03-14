@@ -71,35 +71,13 @@ print(most.rated.vg)
 currentUser <- "U141954350"
 
 otherUsers <- ratingData[!(rownames(ratingData) %in% c(currentUser)),]
+currentUserRatings = ratingData[(rownames(ratingData) %in% c(currentUser)),]
 
-compare_1=similarity(ratingData[currentUser,],otherUsers,method="jaccard")
+
+compare_1 = similarity(currentUserRatings,otherUsers,method='jaccard',which = 'users')
 compare_1_mat=as(compare_1,'matrix')
 
-matchedUser=colnames(compare_1_mat)[compare_1_mat==max(compare_1_mat)]
+matchedUser = colnames(compare_1_mat)[compare_1_mat == 1]
 cat('The user that is most similar to ',currentUser, ' is ',matchedUser,'\n')
 
 
-
-
-
-
-
-
-
-
-
-
-recommenderRegistry$get_entry('UBCF', dataType='realRatingMatrix')
-
-ubcf_rec = Recommender(
-  data=ratingData,
-  method='UBCF',           # User-Based Collaborative Filtering
-  parameter=list(
-    normalize='center',    # normalizing by subtracting average rating per user;
-    # note that we don't scale by standard deviations here;
-    # we are assuming people rate on the same scale but have
-    # different biases
-    method='Pearson',      # use Pearson correlation
-    nn=30                  # number of Nearest Neighbors for calibration
-  ))
-ubcf_rec
