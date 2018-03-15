@@ -1,9 +1,11 @@
 ---
 title: "Machine Learning Homework 4.2"
 author: "Josh Elder and Curt Ginder"
-geometry: "left=2.5cm,right=2.5cm,top=.5cm,bottom=1.5cm"
-header-includes:
-output: pdf_document
+header-includes: null
+output:
+  word_document: default
+  pdf_document: default
+geometry: left=2.5cm,right=2.5cm,top=.5cm,bottom=1.5cm
 ---
 First, we read in libraries including the "recommenderlab" needed for this assignment.
 ```{r include=FALSE}
